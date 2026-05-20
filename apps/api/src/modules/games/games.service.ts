@@ -51,9 +51,10 @@ export class GamesService {
   async update(id: string, dto: UpdateGameDto): Promise<GameDocument> {
     const game = await this.findById(id);
 
-    if (dto.slug && dto.slug !== game.slug) {
-      const exists = await this.gameModel.findOne({ slug: dto.slug });
-      if (exists) throw new ConflictException(`Slug "${dto.slug}" already taken`);
+    const dtoSlug = (dto as { slug?: string }).slug;
+    if (dtoSlug && dtoSlug !== game.slug) {
+      const exists = await this.gameModel.findOne({ slug: dtoSlug });
+      if (exists) throw new ConflictException(`Slug "${dtoSlug}" already taken`);
     }
 
     Object.assign(game, dto);
