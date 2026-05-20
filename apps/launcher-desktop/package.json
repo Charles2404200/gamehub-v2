@@ -1,0 +1,40 @@
+{
+  "name": "@gamehub/launcher-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "dist": "electron-builder --dir",
+    "dist:win": "electron-builder --win",
+    "clean": "rimraf out dist"
+  },
+  "dependencies": {
+    "@gamehub/installer": "workspace:*",
+    "@gamehub/shared": "workspace:*",
+    "@tanstack/react-query": "^5.32.0",
+    "axios": "^1.6.8",
+    "electron-updater": "^6.1.8",
+    "lucide-react": "^0.378.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.19",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "^2.2.0",
+    "postcss": "^8.4.38",
+    "rimraf": "^5.0.5",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5"
+  }
+}

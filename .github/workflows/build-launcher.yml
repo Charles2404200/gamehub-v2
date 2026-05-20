@@ -1,0 +1,50 @@
+name: Build Launcher
+
+on:
+  push:
+    tags:
+      - 'launcher-v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared packages
+        run: pnpm --filter @gamehub/shared build ; pnpm --filter @gamehub/installer build
+
+      - name: Build and package launcher
+        working-directory: apps/launcher-desktop
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_UPDATE_BASE_URL: ${{ secrets.VITE_UPDATE_BASE_URL }}
+          VITE_APP_VERSION: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pnpm run build
+          pnpm exec electron-builder --win --publish never
+
+      - name: Upload artifacts to R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          pnpm exec aws s3 cp apps/launcher-desktop/dist/ s3://${{ secrets.R2_BUCKET }}/launcher-updates/win/ --recursive --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com

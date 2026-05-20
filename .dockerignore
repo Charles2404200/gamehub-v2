@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+**/.turbo
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/coverage
+**/.next
+**/.cache
+Dockerfile*
+.dockerignore
+.git
+.gitignore
+*.md
+apps/launcher-desktop
+apps/admin-web

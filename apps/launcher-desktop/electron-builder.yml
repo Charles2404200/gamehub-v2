@@ -1,0 +1,37 @@
+appId: com.gamehub.launcher
+productName: GameHub
+copyright: Copyright © 2024
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**/*
+  - package.json
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: GameHub-Setup-${version}.exe
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+
+mac:
+  target:
+    - dmg
+  artifactName: GameHub-${version}.dmg
+
+linux:
+  target:
+    - AppImage
+  artifactName: GameHub-${version}.AppImage
+
+publish:
+  provider: generic
+  url: ${env.VITE_UPDATE_BASE_URL}/win
