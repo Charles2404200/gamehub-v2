@@ -120,6 +120,9 @@ export default function UploadPatchModal({
         }),
       });
 
+      // Step 5: Publish — builds manifest & updates game.latestPatchVersionId
+      await api.post(`/admin/patches/${patchVersionId}/publish`);
+
       setStep('success');
       setTimeout(() => {
         onSuccess?.();
