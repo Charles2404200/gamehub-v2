@@ -5,6 +5,8 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile --ignore-scripts
 RUN pnpm --filter @gamehub/shared build
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN pnpm --filter @gamehub/admin-web exec vite build
 
 # ---- Serve static files ----
