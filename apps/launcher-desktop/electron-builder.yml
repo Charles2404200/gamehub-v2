@@ -15,6 +15,7 @@ win:
     - target: nsis
       arch:
         - x64
+  certificateFile: null
   artifactName: GameHub-Setup-${version}.exe
 
 nsis:
@@ -33,5 +34,5 @@ linux:
   artifactName: GameHub-${version}.AppImage
 
 publish:
-  provider: generic
-  url: ${env.VITE_UPDATE_BASE_URL}/win
+  - provider: generic
+    url: https://pub-a4652a07eb284b5295b7e710ff59a071.r2.dev/launcher-updates/
