@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Filesystem (runs in main process only)
   fs: {
+    selectGameFolder: () => ipcRenderer.invoke('fs:selectGameFolder'),
     validateGamePath: (gamePath: string, executableNames: string[]) =>
       ipcRenderer.invoke('fs:validateGamePath', gamePath, executableNames),
     readInstallReceipt: (receiptPath: string) =>

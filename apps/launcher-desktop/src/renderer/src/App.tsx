@@ -5,6 +5,7 @@ import ForceUpdateModal from './components/ForceUpdateModal';
 import TitleBar from './components/TitleBar';
 import GameListPage from './pages/GameListPage';
 import GameDetailPage from './pages/GameDetailPage';
+import SettingsPage from './pages/SettingsPage';
 import type { LauncherConfig } from '@gamehub/shared';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
@@ -55,6 +56,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<GameListPage apiBase={API_BASE} />} />
               <Route path="/games/:slug" element={<GameDetailPage apiBase={API_BASE} />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </HashRouter>

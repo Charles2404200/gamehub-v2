@@ -1,4 +1,4 @@
-import { IpcMain } from 'electron';
+import { IpcMain, dialog, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { installPatch } from '@gamehub/installer';
@@ -10,21 +10,21 @@ import type { PatchManifest } from '@gamehub/shared';
  * The renderer communicates via contextBridge IPC — never directly.
  */
 export function registerFsHandlers(ipcMain: IpcMain): void {
+  /** Open folder picker dialog */
+  ipcMain.handle('fs:selectGameFolder', async (_event) => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (!win) return { canceled: true, filePaths: [] };
+
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory'],
+      title: 'Select Game Folder',
+    });
+
+    return result;
+  });
+
   /** Check if a path looks like a valid game install directory */
   ipcMain.handle('fs:validateGamePath', (_event, gamePath: string, executableNames: string[]) => {
-    try {
-      if (!fs.existsSync(gamePath)) return { valid: false, reason: 'Path does not exist' };
-
-      const files = fs.readdirSync(gamePath);
-      const hasExecutable = executableNames.some((name) =>
-        files.some((f) => f.toLowerCase() === name.toLowerCase()),
-      );
-
-      return { valid: hasExecutable, reason: hasExecutable ? null : 'No matching executable found' };
-    } catch (err) {
-      return { valid: false, reason: String(err) };
-    }
-  });
 
   /** Read a local install receipt (JSON) */
   ipcMain.handle('fs:readInstallReceipt', (_event, receiptPath: string) => {

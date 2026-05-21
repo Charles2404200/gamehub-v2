@@ -8,6 +8,8 @@ type InstallPhase = 'idle' | 'downloading' | 'installing' | 'done' | 'error';
 
 interface ElectronAPI {
   fs: {
+    selectGameFolder: () => Promise<{ canceled: boolean; filePaths: string[] }>;
+    validateGamePath: (p: string, names: string[]) => Promise<{ valid: boolean; reason?: string }>;
     readInstallReceipt: (p: string) => Promise<{ version: string } | null>;
     writeInstallReceipt: (p: string, d: unknown) => Promise<{ ok: boolean }>;
     installPatch: (opts: { manifest: PatchManifest; gamePath: string; cacheDir: string; backupDir: string }) => Promise<{ ok: boolean; receipt?: unknown; error?: string }>;
@@ -81,6 +83,26 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
     }
   }, [manifest, gamePath, slug]);
 
+  const handleBrowseFolder = useCallback(async () => {
+    const result = await EA.fs.selectGameFolder();
+    if (!result.canceled && result.filePaths.length > 0) {
+      const folder = result.filePaths[0];
+      // Validate game path
+      if (game?.executableNames) {
+        const validation = await EA.fs.validateGamePath(folder, game.executableNames);
+        if (validation.valid) {
+          setGamePath(folder);
+          setErrorMsg('');
+        } else {
+          setErrorMsg(validation.reason || 'Invalid game folder');
+          setGamePath(folder);
+        }
+      } else {
+        setGamePath(folder);
+      }
+    }
+  }, [game]);
+
   if (!game) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -153,6 +175,12 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
                   onChange={(e) => setGamePath(e.target.value)}
                 />
               </div>
+              <button
+                onClick={handleBrowseFolder}
+                className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors border border-zinc-700"
+              >
+                Browse
+              </button>
             </div>
 
             {/* Progress bar */}
