@@ -45,7 +45,10 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
     if (!game?.latestPatchVersionId) return;
     axios
       .get<PatchManifest>(`${apiBase}/launcher/patches/${game.latestPatchVersionId}/manifest`)
-      .then(({ data }) => setManifest(data));
+      .then(({ data }) => setManifest(data))
+      .catch((err) => {
+        console.error('[GameDetail] manifest fetch failed:', err?.response?.status, err?.response?.data ?? err.message);
+      });
   }, [game, apiBase]);
 
   if (!game) {
