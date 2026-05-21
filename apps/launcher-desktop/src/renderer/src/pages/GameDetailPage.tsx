@@ -31,7 +31,6 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
   const [installedVersion, setInstalledVersion] = useState<string | null>(null);
   const [showInstaller, setShowInstaller] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'install'>('info');
 
   useEffect(() => {
     if (!slug) return;
@@ -61,108 +60,149 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
 
   return (
     <div className="h-full flex flex-col bg-[#0a0a0a] overflow-y-auto">
-      {/* Banner */}
-      <div className="relative h-44 bg-[#111] shrink-0">
-        {game.bannerImage ? (
-          <img src={game.bannerImage.url} alt="" className="w-full h-full object-cover opacity-50" />
-        ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
+      {/* ── Top bar ── */}
+      <div className="sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur border-b border-zinc-800/60
+                      flex items-center justify-between px-4 py-2.5 shrink-0">
         <button
           onClick={() => navigate('/')}
-          className="absolute top-4 left-4 flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
         >
-          <ArrowLeft size={16} /> Quay lại
+          <ArrowLeft size={15} /> Quay lại
         </button>
+        <p className="text-sm font-medium text-zinc-200 truncate max-w-xs">{game.title}</p>
+        <div className="flex items-center gap-2">
+          {game.installGuide && (
+            <button
+              onClick={() => setShowGuide(true)}
+              className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700
+                         text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <BookOpen size={13} /> Hướng dẫn
+            </button>
+          )}
+          {manifest && (
+            <button
+              onClick={() => setShowInstaller(true)}
+              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs
+                         font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Download size={13} />
+              {hasUpdate ? 'Cập nhật' : installedVersion ? 'Cài lại' : 'Cài đặt'}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Main layout */}
-      <div className="px-5 pb-8 flex-1">
-        {/* Title + action buttons */}
-        <div className="flex items-end justify-between gap-3 mb-4 pt-3">
-          <div>
-            <h1 className="text-2xl font-bold leading-tight">{game.title}</h1>
-            <div className="flex items-center gap-2 mt-1">
-              {installedVersion && (
-                <span className="text-xs bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-0.5 rounded">
-                  Đã cài: v{installedVersion}
-                </span>
-              )}
-              {manifest && (
-                <span className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-300 px-2 py-0.5 rounded">
-                  Bản mới: v{manifest.version}
-                </span>
-              )}
-              {hasUpdate && (
-                <span className="text-xs bg-red-500/10 border border-red-500/30 text-red-400 px-2 py-0.5 rounded">
-                  Có bản cập nhật
-                </span>
-              )}
+      {/* ── Hero: 2-column ── */}
+      <div className="flex gap-4 px-4 pt-4 pb-3 shrink-0">
+        {/* Left: screenshots */}
+        <div className="flex-1 min-w-0">
+          {screenshots.length > 0 ? (
+            <ScreenshotCarousel screenshots={screenshots} />
+          ) : game.bannerImage ? (
+            <div className="rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
+              <img src={game.bannerImage.url} alt="" className="w-full h-full object-contain" />
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {game.installGuide && (
-              <button
-                onClick={() => setShowGuide(true)}
-                className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700
-                           text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors"
-              >
-                <BookOpen size={14} /> Hướng dẫn
-              </button>
+          ) : (
+            <div className="rounded-xl bg-zinc-900 border border-zinc-800 flex items-center
+                            justify-center text-zinc-600 text-sm" style={{ aspectRatio: '16/9' }}>
+              Chưa có ảnh
+            </div>
+          )}
+        </div>
+
+        {/* Right: cover + info */}
+        <div className="w-44 shrink-0 flex flex-col gap-3">
+          {/* Cover */}
+          <div className="rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800"
+               style={{ aspectRatio: '3/4' }}>
+            {game.coverImage ? (
+              <img src={game.coverImage.url} alt={game.title}
+                   className="w-full h-full object-contain" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">
+                No cover
+              </div>
             )}
+          </div>
+
+          {/* Version badges */}
+          <div className="space-y-1">
+            {installedVersion && (
+              <div className="text-xs bg-green-500/10 border border-green-500/20 text-green-400
+                              px-2 py-1 rounded-lg text-center">
+                Đã cài v{installedVersion}
+              </div>
+            )}
+            {manifest && (
+              <div className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-300
+                              px-2 py-1 rounded-lg text-center">
+                Bản mới v{manifest.version}
+              </div>
+            )}
+            {hasUpdate && (
+              <div className="text-xs bg-red-500/10 border border-red-500/30 text-red-400
+                              px-2 py-1 rounded-lg text-center">
+                Có cập nhật
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="space-y-2 mt-auto">
             {manifest && (
               <button
                 onClick={() => setShowInstaller(true)}
-                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-sm
-                           font-semibold px-4 py-2 rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700
+                           text-white text-xs font-semibold py-2.5 rounded-xl transition-colors"
               >
-                <Download size={14} />
+                <Download size={13} />
                 {hasUpdate ? 'Cập nhật' : installedVersion ? 'Cài lại' : 'Cài đặt'}
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Screenshots carousel */}
-        {screenshots.length > 0 && (
-          <ScreenshotCarousel screenshots={screenshots} />
-        )}
-
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-zinc-800 mb-4 mt-4">
-          {(['info', 'install'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? 'border-red-500 text-white'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {tab === 'info' ? 'Thông tin game' : 'Cài đặt'}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'info' && (
-          <InfoTab game={game} />
-        )}
-        {activeTab === 'install' && manifest && (
-          <div className="text-sm text-zinc-400">
-            <p>
-              Bấm nút <span className="text-white font-medium">Cài đặt</span> ở trên để bắt đầu cài
-              bản việt hóa vào thư mục game của bạn.
-            </p>
             {game.installGuide && (
               <button
                 onClick={() => setShowGuide(true)}
-                className="mt-3 flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm"
+                className="w-full flex items-center justify-center gap-1.5 bg-zinc-800
+                           hover:bg-zinc-700 border border-zinc-700 text-white text-xs
+                           font-medium py-2 rounded-xl transition-colors"
               >
-                <BookOpen size={14} /> Xem hướng dẫn chi tiết
+                <BookOpen size={12} /> Hướng dẫn
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ── Content ── */}
+      <div className="px-4 pb-8 space-y-5">
+        {/* Title */}
+        <div>
+          <h1 className="text-xl font-bold leading-tight text-white">{game.title}</h1>
+        </div>
+
+        {/* Description */}
+        {game.description && (
+          <p className="text-sm text-zinc-300 leading-relaxed">{game.description}</p>
         )}
+
+        {/* YouTube */}
+        {game.youtubeDemoUrl && (
+          <a
+            href={game.youtubeDemoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+          >
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+              <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
+            </svg>
+            Xem trailer trên YouTube
+          </a>
+        )}
+
+        {/* Credits */}
+        <InfoTab game={game} />
       </div>
 
       {/* Installer Dialog */}
@@ -188,10 +228,7 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
               <h3 className="font-semibold text-white flex items-center gap-2">
                 <BookOpen size={16} className="text-red-400" /> Hướng dẫn cài đặt
               </h3>
-              <button
-                onClick={() => setShowGuide(false)}
-                className="text-zinc-500 hover:text-white transition-colors"
-              >
+              <button onClick={() => setShowGuide(false)} className="text-zinc-500 hover:text-white transition-colors">
                 <XIcon size={18} />
               </button>
             </div>
@@ -220,56 +257,25 @@ function InfoTab({ game }: { game: Game }) {
       (credits.testing?.length ?? 0)
     ) > 0;
 
+  if (!hasCredits) return null;
+
   return (
-    <div className="space-y-5">
-      {game.description && (
-        <p className="text-sm text-zinc-300 leading-relaxed">{game.description}</p>
+    <div className="grid grid-cols-2 gap-2">
+      {credits.translation?.length > 0 && (
+        <CreditsCard label="Dịch thuật" names={credits.translation} color="text-cyan-400" />
       )}
-
-      {/* YouTube trailer */}
-      {game.youtubeDemoUrl && (
-        <a
-          href={game.youtubeDemoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
-        >
-          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
-            <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
-          </svg>
-          Xem trailer trên YouTube
-        </a>
+      {credits.technical?.length > 0 && (
+        <CreditsCard label="Kỹ thuật" names={credits.technical} color="text-green-400" />
       )}
-
-      {/* Credits */}
-      {hasCredits && (
-        <div className="grid grid-cols-3 gap-2">
-          {credits.translation?.length > 0 && (
-            <CreditsCard label="Dịch thuật" names={credits.translation} color="text-cyan-400" />
-          )}
-          {credits.technical?.length > 0 && (
-            <CreditsCard label="Kỹ thuật" names={credits.technical} color="text-green-400" />
-          )}
-          {credits.production?.length > 0 && (
-            <CreditsCard label="Thực hiện" names={credits.production} color="text-amber-400" />
-          )}
-          {credits.testing?.length > 0 && (
-            <CreditsCard label="Hỗ trợ / Test" names={credits.testing} color="text-purple-400" />
-          )}
-        </div>
+      {credits.production?.length > 0 && (
+        <CreditsCard label="Thực hiện" names={credits.production} color="text-amber-400" />
       )}
-
-      {/* Star rating placeholder */}
-      <div className="flex items-center gap-1 text-yellow-400 text-lg">
-        {'★★★★★'.split('').map((s, i) => (
-          <span key={i}>{s}</span>
-        ))}
-        <span className="text-zinc-400 text-sm ml-1">5.0 / 5</span>
-      </div>
+      {credits.testing?.length > 0 && (
+        <CreditsCard label="Hỗ trợ / Test" names={credits.testing} color="text-purple-400" />
+      )}
     </div>
   );
 }
-
 function CreditsCard({ label, names, color }: { label: string; names: string[]; color: string }) {
   return (
     <div className="bg-[#141414] border border-zinc-800 rounded-lg px-3 py-2.5">
@@ -282,59 +288,74 @@ function CreditsCard({ label, names, color }: { label: string; names: string[]; 
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Screenshot Carousel
+// Screenshot Carousel with thumbnail strip
 // ────────────────────────────────────────────────────────────────────────────
 
 function ScreenshotCarousel({ screenshots }: { screenshots: Array<{ key: string; url: string }> }) {
   const [current, setCurrent] = useState(0);
+  const thumbRef = useRef<HTMLDivElement>(null);
   const total = screenshots.length;
 
   const prev = () => setCurrent((c) => (c - 1 + total) % total);
   const next = () => setCurrent((c) => (c + 1) % total);
 
+  useEffect(() => {
+    // Scroll active thumbnail into view
+    const el = thumbRef.current?.children[current] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [current]);
+
   return (
-    <div className="relative rounded-lg overflow-hidden bg-[#111] mb-2" style={{ aspectRatio: '16/7' }}>
-      <img
-        src={screenshots[current].url}
-        alt={`screenshot ${current + 1}`}
-        className="w-full h-full object-cover"
-      />
+    <div className="flex flex-col gap-1.5">
+      {/* Main image */}
+      <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
+        <img
+          key={screenshots[current].url}
+          src={screenshots[current].url}
+          alt={`screenshot ${current + 1}`}
+          className="w-full h-full object-contain"
+        />
+        {total > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80
+                         text-white rounded-full p-1.5 transition-colors"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80
+                         text-white rounded-full p-1.5 transition-colors"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </>
+        )}
+        <span className="absolute top-2 right-2 text-xs text-white/60 bg-black/50 px-1.5 py-0.5 rounded-full">
+          {current + 1} / {total}
+        </span>
+      </div>
 
+      {/* Thumbnail strip */}
       {total > 1 && (
-        <>
-          <button
-            onClick={prev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80
-                       text-white rounded-full p-1.5 transition-colors"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            onClick={next}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80
-                       text-white rounded-full p-1.5 transition-colors"
-          >
-            <ChevronRight size={16} />
-          </button>
-
-          {/* Thumbnail strip */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
-            {screenshots.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrent(i)}
-                className={`w-2 h-2 rounded-full transition-colors ${
-                  i === current ? 'bg-white' : 'bg-white/30 hover:bg-white/60'
-                }`}
-              />
-            ))}
-          </div>
-        </>
+        <div ref={thumbRef} className="flex gap-1.5 overflow-x-auto pb-0.5"
+             style={{ scrollbarWidth: 'none' }}>
+          {screenshots.map((s, i) => (
+            <button
+              key={s.key}
+              onClick={() => setCurrent(i)}
+              className={`shrink-0 rounded-md overflow-hidden border-2 transition-all ${
+                i === current ? 'border-red-500 opacity-100' : 'border-transparent opacity-50 hover:opacity-80'
+              }`}
+              style={{ width: 72, aspectRatio: '16/9' }}
+            >
+              <img src={s.url} alt="" className="w-full h-full object-contain bg-black" />
+            </button>
+          ))}
+        </div>
       )}
-
-      <span className="absolute top-2 right-2 text-xs text-white/60 bg-black/50 px-2 py-0.5 rounded-full">
-        {current + 1} / {total}
-      </span>
     </div>
   );
 }
