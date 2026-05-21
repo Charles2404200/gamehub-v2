@@ -5,7 +5,7 @@ WORKDIR /app
 COPY . .
 RUN pnpm install --frozen-lockfile --ignore-scripts
 RUN pnpm --filter @gamehub/shared build
-RUN pnpm --filter @gamehub/admin-web build
+RUN pnpm --filter @gamehub/admin-web exec vite build
 
 # ---- Serve static files ----
 FROM node:20-alpine AS runner
