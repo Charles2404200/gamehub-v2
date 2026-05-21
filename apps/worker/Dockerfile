@@ -25,8 +25,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy node_modules from builder (has all dependencies already installed)
+# Copy node_modules from builder (root .pnpm store + per-package symlinks)
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/worker/node_modules ./apps/worker/node_modules
 
 # Copy built worker and shared packages
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
