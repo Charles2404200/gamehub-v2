@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, Link, Check } from 'lucide-react';
 import { useR2Upload } from '../lib/useR2Upload';
 import { api } from '../lib/api';
 
@@ -20,7 +20,29 @@ export default function ImageUpload({
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'file' | 'url'>('file');
+  const [urlInput, setUrlInput] = useState('');
   const { uploadFile } = useR2Upload();
+
+  async function handleUrlSave() {
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+    try {
+      setUploading(true);
+      setError(null);
+      const field = type === 'cover' ? 'coverImage' : 'bannerImage';
+      await api.patch(`/admin/games/${gameId}/media`, {
+        [field]: { key: trimmed, url: trimmed },
+      });
+      setPreview(trimmed);
+      setUrlInput('');
+      onSuccess?.(trimmed);
+    } catch {
+      setError('Lưu URL thất bại');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.currentTarget.files?.[0];
@@ -82,7 +104,34 @@ export default function ImageUpload({
 
   return (
     <div>
-      <label className="label">{label}</label>
+      <div className="flex items-center justify-between mb-1">
+        <label className="label">{label}</label>
+        <div className="flex gap-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setMode('file')}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${
+              mode === 'file'
+                ? 'bg-primary text-white'
+                : 'bg-bg-elevated text-text-muted hover:text-text-primary'
+            }`}
+          >
+            <Upload size={11} /> File
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('url')}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${
+              mode === 'url'
+                ? 'bg-primary text-white'
+                : 'bg-bg-elevated text-text-muted hover:text-text-primary'
+            }`}
+          >
+            <Link size={11} /> URL
+          </button>
+        </div>
+      </div>
+
       <input
         ref={fileInputRef}
         type="file"
@@ -91,9 +140,29 @@ export default function ImageUpload({
         className="hidden"
       />
 
+      {mode === 'url' ? (
+        <div className="flex gap-2 mb-2">
+          <input
+            className="input flex-1 text-sm"
+            placeholder="https://..."
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleUrlSave())}
+          />
+          <button
+            type="button"
+            onClick={handleUrlSave}
+            disabled={uploading || !urlInput.trim()}
+            className="btn-primary px-3 text-sm flex items-center gap-1 disabled:opacity-50"
+          >
+            <Check size={14} /> Lưu
+          </button>
+        </div>
+      ) : null}
+
       <div
-        className={`${aspectRatio} bg-bg-elevated rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer overflow-hidden flex items-center justify-center relative group`}
-        onClick={() => fileInputRef.current?.click()}
+        className={`${aspectRatio} bg-bg-elevated rounded-lg border-2 border-dashed border-border ${mode === 'file' ? 'hover:border-primary/50 cursor-pointer' : ''} transition-colors overflow-hidden flex items-center justify-center relative group`}
+        onClick={() => mode === 'file' && fileInputRef.current?.click()}
       >
         {preview ? (
           <>
@@ -110,7 +179,9 @@ export default function ImageUpload({
         ) : (
           <div className="text-center pointer-events-none">
             <Upload size={24} className="mx-auto text-text-muted mb-2" />
-            <p className="text-text-secondary text-sm">Click to upload {label.toLowerCase()}</p>
+            <p className="text-text-secondary text-sm">
+              {mode === 'file' ? `Click to upload ${label.toLowerCase()}` : preview ? 'Preview' : 'Nhập URL bên trên để xem preview'}
+            </p>
           </div>
         )}
       </div>
