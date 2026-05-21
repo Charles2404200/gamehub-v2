@@ -1,9 +1,24 @@
-import { IpcMain, dialog, BrowserWindow } from 'electron';
+import { IpcMain, dialog, BrowserWindow, app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { installPatch } from '@gamehub/installer';
 import type { InstallOptions, InstallProgress } from '@gamehub/installer';
 import type { PatchManifest } from '@gamehub/shared';
+
+/** Resolve gamehub virtual paths (e.g. "gamehub-cache:slug") to real OS paths */
+function resolveVirtualPath(virtualPath: string): string {
+  const userData = app.getPath('userData');
+  if (virtualPath.startsWith('gamehub-cache:')) {
+    return path.join(userData, 'gamehub', 'cache', virtualPath.slice('gamehub-cache:'.length));
+  }
+  if (virtualPath.startsWith('gamehub-backup:')) {
+    return path.join(userData, 'gamehub', 'backups', virtualPath.slice('gamehub-backup:'.length));
+  }
+  if (virtualPath.startsWith('gamehub-receipt:')) {
+    return path.join(userData, 'gamehub', 'receipts', virtualPath.slice('gamehub-receipt:'.length) + '.json');
+  }
+  return virtualPath;
+}
 
 /**
  * All filesystem operations run here in the main process.
@@ -42,8 +57,9 @@ export function registerFsHandlers(ipcMain: IpcMain): void {
   /** Read a local install receipt (JSON) */
   ipcMain.handle('fs:readInstallReceipt', (_event, receiptPath: string) => {
     try {
-      if (!fs.existsSync(receiptPath)) return null;
-      return JSON.parse(fs.readFileSync(receiptPath, 'utf-8'));
+      const resolved = resolveVirtualPath(receiptPath);
+      if (!fs.existsSync(resolved)) return null;
+      return JSON.parse(fs.readFileSync(resolved, 'utf-8'));
     } catch {
       return null;
     }
@@ -52,8 +68,9 @@ export function registerFsHandlers(ipcMain: IpcMain): void {
   /** Write an install receipt to disk */
   ipcMain.handle('fs:writeInstallReceipt', (_event, receiptPath: string, data: unknown) => {
     try {
-      fs.mkdirSync(path.dirname(receiptPath), { recursive: true });
-      fs.writeFileSync(receiptPath, JSON.stringify(data, null, 2), 'utf-8');
+      const resolved = resolveVirtualPath(receiptPath);
+      fs.mkdirSync(path.dirname(resolved), { recursive: true });
+      fs.writeFileSync(resolved, JSON.stringify(data, null, 2), 'utf-8');
       return { ok: true };
     } catch (err) {
       return { ok: false, error: String(err) };
@@ -79,6 +96,8 @@ export function registerFsHandlers(ipcMain: IpcMain): void {
       try {
         const result = await installPatch({
           ...options,
+          cacheDir: resolveVirtualPath(options.cacheDir),
+          backupDir: resolveVirtualPath(options.backupDir),
           onProgress: (progress: InstallProgress) => {
             event.sender.send('install:progress', progress);
           },
