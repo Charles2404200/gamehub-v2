@@ -30,8 +30,9 @@ COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/r2-client/dist ./packages/r2-client/dist
+# Copy built packages WITH package.json (needed for module resolution)
+COPY --from=builder /app/packages/shared ./packages/shared
+COPY --from=builder /app/packages/r2-client ./packages/r2-client
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
 
 CMD ["node", "apps/worker/dist/index.js"]
