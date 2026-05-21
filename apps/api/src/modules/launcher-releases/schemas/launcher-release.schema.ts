@@ -25,7 +25,7 @@ export class LauncherRelease {
   @Prop({ type: String, required: true })
   minSupportedVersion!: string;
 
-  @Prop({ default: '' })
+  @Prop({ type: String, default: '' })
   releaseNotes!: string;
 
   @Prop({ type: String, required: true })

@@ -19,16 +19,16 @@ export class UploadSession {
   })
   status!: UploadSessionStatus;
 
-  @Prop({ default: 0 })
+  @Prop({ type: Number, default: 0 })
   totalFiles!: number;
 
-  @Prop({ default: 0 })
+  @Prop({ type: Number, default: 0 })
   uploadedFiles!: number;
 
-  @Prop({ default: 0 })
+  @Prop({ type: Number, default: 0 })
   totalSize!: number;
 
-  @Prop({ default: 0 })
+  @Prop({ type: Number, default: 0 })
   uploadedSize!: number;
 
   @Prop({ type: Date, required: true })

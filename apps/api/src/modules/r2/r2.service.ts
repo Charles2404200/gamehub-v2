@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { R2Client } from '@gamehub/r2-client';
 
@@ -6,7 +6,7 @@ import { R2Client } from '@gamehub/r2-client';
 export class R2Service {
   private readonly client: R2Client;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(@Inject(ConfigService) private readonly configService: ConfigService) {
     this.client = new R2Client({
       accountId: configService.getOrThrow('R2_ACCOUNT_ID'),
       bucket: configService.getOrThrow('R2_BUCKET'),

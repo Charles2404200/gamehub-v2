@@ -36,7 +36,22 @@ export class QueueService {
     }
 
     try {
-      this.redis = new Redis(this.redisUrl, { maxRetriesPerRequest: null });
+      this.redis = new Redis(this.redisUrl, {
+        maxRetriesPerRequest: null,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+      });
+      this.redis.on('error', (err: Error) => {
+        this.logger.warn(`Redis error (queues disabled): ${err.message}`);
+      });
+
+      await this.redis.ping().catch(() => {
+        this.logger.warn('Redis unreachable — queue jobs disabled.');
+        this.redis = null;
+        return;
+      });
+
+      if (!this.redis) return;
 
       this.deleteGameQueue = new Queue(DELETE_GAME_R2_QUEUE, { connection: this.redis });
       this.deletePatchQueue = new Queue(DELETE_PATCH_R2_QUEUE, { connection: this.redis });
@@ -47,8 +62,7 @@ export class QueueService {
 
       this.logger.log('Queue service initialized');
     } catch (err) {
-      this.logger.error('Failed to initialize queues:', err);
-      throw err;
+      this.logger.warn(`Redis unavailable — queue jobs disabled. ${(err as Error).message}`);
     }
   }
 

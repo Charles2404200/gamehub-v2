@@ -15,7 +15,7 @@ export class PatchVersion {
   @Prop({ type: String, required: true, trim: true })
   title!: string;
 
-  @Prop({ default: '' })
+  @Prop({ type: String, default: '' })
   changelog!: string;
 
   @Prop({ type: String, enum: Object.values(PatchStatus), default: PatchStatus.DRAFT })

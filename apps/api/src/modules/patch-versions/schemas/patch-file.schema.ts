@@ -23,7 +23,7 @@ export class PatchFile {
   @Prop({ type: String, required: true })
   sha256!: string;
 
-  @Prop({ default: 'application/octet-stream' })
+  @Prop({ type: String, default: 'application/octet-stream' })
   contentType!: string;
 }
 

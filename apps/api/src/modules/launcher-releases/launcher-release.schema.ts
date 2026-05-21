@@ -6,25 +6,25 @@ export type LauncherReleaseDocument = HydratedDocument<LauncherRelease>;
 
 @Schema({ timestamps: true })
 export class LauncherRelease {
-  @Prop({ required: true, index: true })
+  @Prop({ type: String, required: true, index: true })
   version!: string;
 
-  @Prop({ required: true, enum: LauncherPlatform, index: true })
+  @Prop({ type: String, required: true, enum: LauncherPlatform, index: true })
   platform!: LauncherPlatform;
 
-  @Prop({ required: true, enum: LauncherReleaseStatus, default: LauncherReleaseStatus.DRAFT })
+  @Prop({ type: String, required: true, enum: LauncherReleaseStatus, default: LauncherReleaseStatus.DRAFT })
   status!: LauncherReleaseStatus;
 
-  @Prop({ required: true, default: false })
+  @Prop({ type: Boolean, required: true, default: false })
   forceUpdate!: boolean;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   minSupportedVersion!: string;
 
-  @Prop({ required: true, default: '' })
+  @Prop({ type: String, required: true, default: '' })
   releaseNotes!: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   updateBaseUrl!: string;
 
   @Prop({ required: true, type: [String], default: [] })
@@ -33,10 +33,10 @@ export class LauncherRelease {
   @Prop({ type: Date, nullable: true })
   publishedAt?: Date | null;
 
-  @Prop({ index: true })
+  @Prop({ type: Date, index: true })
   createdAt?: Date;
 
-  @Prop({ index: true })
+  @Prop({ type: Date, index: true })
   updatedAt?: Date;
 }
 
