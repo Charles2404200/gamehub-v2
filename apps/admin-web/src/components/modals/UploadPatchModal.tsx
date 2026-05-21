@@ -2,7 +2,7 @@ import { useState, useRef, FormEvent } from 'react';
 import { useR2Upload, FileToUpload } from '../../lib/useR2Upload';
 import { computeFileSHA256 } from '../../lib/crypto';
 import { api } from '../../lib/api';
-import { X, Upload, CheckCircle2, AlertCircle, FolderOpen } from 'lucide-react';
+import { X, Upload, CheckCircle2, AlertCircle, FolderOpen, FileUp, Trash2 } from 'lucide-react';
 
 interface UploadPatchModalProps {
   gameId: string;
@@ -27,7 +27,9 @@ export default function UploadPatchModal({
 }: UploadPatchModalProps) {
   const [step, setStep] = useState<UploadStep>('initial');
   const [files, setFiles] = useState<FileToUpload[]>([]);
+  const [isHashing, setIsHashing] = useState(false);
   const [uploadSession, setUploadSession] = useState<UploadSession | null>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [metadata, setMetadata] = useState({
@@ -39,23 +41,41 @@ export default function UploadPatchModal({
 
   const { uploadFiles, uploadProgress, isUploading, error: uploadError } = useR2Upload();
 
-  async function handleFolderSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const selectedFiles = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
+  async function addSelectedFiles(selectedFiles: File[], isFolder: boolean) {
     if (selectedFiles.length === 0) return;
-
-    // Compute SHA-256 for each file
+    setIsHashing(true);
     const filesWithHash: FileToUpload[] = await Promise.all(
       selectedFiles.map(async (file) => ({
         file,
-        relativePath: file.webkitRelativePath || file.name,
+        relativePath: isFolder ? (file.webkitRelativePath || file.name) : file.name,
         sha256: await computeFileSHA256(file),
         uploaded: false,
         progress: 0,
       })),
     );
+    setFiles((prev) => {
+      // Deduplicate by relativePath
+      const existing = new Set(prev.map((f) => f.relativePath));
+      const newOnes = filesWithHash.filter((f) => !existing.has(f.relativePath));
+      return [...prev, ...newOnes];
+    });
+    setIsHashing(false);
+  }
 
-    setFiles(filesWithHash);
-    setStep('metadata');
+  async function handleFolderSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
+    e.currentTarget.value = '';
+    await addSelectedFiles(selected, true);
+  }
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
+    e.currentTarget.value = '';
+    await addSelectedFiles(selected, false);
+  }
+
+  function removeFile(relativePath: string) {
+    setFiles((prev) => prev.filter((f) => f.relativePath !== relativePath));
   }
 
   async function handleMetadataSubmit(e: FormEvent) {
@@ -154,35 +174,103 @@ export default function UploadPatchModal({
         </div>
 
         <div className="p-5 space-y-4">
-          {/* INITIAL: Select folder */}
+          {/* INITIAL: Select folder and/or individual files */}
           {step === 'initial' && (
             <div className="space-y-4">
-              <p className="text-text-secondary text-sm">
-                Select a folder containing your patch files. All files and directory structure will be preserved.
-              </p>
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  onChange={handleFolderSelect}
-                  className="hidden"
-                  {...({ webkitdirectory: "true" } as any)}
-                />
+              {/* Hidden inputs */}
+              <input
+                ref={folderInputRef}
+                type="file"
+                multiple
+                onChange={handleFolderSelect}
+                className="hidden"
+                {...({ webkitdirectory: 'true' } as any)}
+              />
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              {/* Pick buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => folderInputRef.current?.click()}
+                  disabled={isHashing}
+                  className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg p-5
+                             hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
+                >
+                  <FolderOpen size={28} className="text-primary" />
+                  <span className="text-sm font-medium text-text-primary">Chọn thư mục</span>
+                  <span className="text-xs text-text-muted">Giữ nguyên cấu trúc</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex flex-col items-center gap-2 text-text-muted hover:text-text-primary"
+                  disabled={isHashing}
+                  className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg p-5
+                             hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
                 >
-                  <FolderOpen size={32} className="text-primary" />
-                  <span className="font-medium">Click to select folder</span>
-                  <span className="text-xs text-text-muted">or drag folder here</span>
+                  <FileUp size={28} className="text-primary" />
+                  <span className="text-sm font-medium text-text-primary">Chọn file lẻ</span>
+                  <span className="text-xs text-text-muted">.dll, .exe, .pak…</span>
                 </button>
               </div>
-              <div className="text-xs text-text-muted bg-bg-elevated p-3 rounded">
-                <p>✓ Files can be in nested folders</p>
-                <p>✓ File structure will be preserved on R2</p>
-              </div>
+
+              {/* File list */}
+              {isHashing && (
+                <p className="text-xs text-text-muted text-center animate-pulse">Đang tính SHA-256…</p>
+              )}
+              {files.length > 0 && (
+                <div className="bg-bg-elevated rounded-lg overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                    <span className="text-xs font-medium text-text-secondary">
+                      {files.length} file · {(totalSize / 1_048_576).toFixed(1)} MB
+                    </span>
+                    <button
+                      onClick={() => setFiles([])}
+                      className="text-xs text-text-muted hover:text-red-400 transition-colors"
+                    >
+                      Xóa tất cả
+                    </button>
+                  </div>
+                  <div className="max-h-40 overflow-auto divide-y divide-border">
+                    {files.map((f) => (
+                      <div key={f.relativePath} className="flex items-center justify-between px-3 py-1.5 text-xs">
+                        <span className="text-text-secondary truncate flex-1 mr-2">{f.relativePath}</span>
+                        <span className="text-text-muted shrink-0 mr-2">
+                          {(f.file.size / 1024).toFixed(0)} KB
+                        </span>
+                        <button
+                          onClick={() => removeFile(f.relativePath)}
+                          className="text-text-muted hover:text-red-400 transition-colors shrink-0"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {files.length > 0 && !isHashing && (
+                <button
+                  type="button"
+                  onClick={() => setStep('metadata')}
+                  className="btn-primary w-full"
+                >
+                  Tiếp tục ({files.length} file)
+                </button>
+              )}
+
+              {files.length === 0 && !isHashing && (
+                <p className="text-xs text-text-muted text-center">
+                  Có thể chọn nhiều thư mục và file lẻ cùng lúc
+                </p>
+              )}
             </div>
           )}
 
