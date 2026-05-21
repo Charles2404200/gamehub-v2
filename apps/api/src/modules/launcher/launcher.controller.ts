@@ -1,10 +1,14 @@
 import { Controller, Get, Param, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { LauncherService } from './launcher.service';
+import { PatchVersionsService } from '../patch-versions/patch-versions.service';
 
 /** All endpoints here are public — no auth required. */
 @Controller('launcher')
 export class LauncherController {
-  constructor(private readonly launcherService: LauncherService) {}
+  constructor(
+    private readonly launcherService: LauncherService,
+    private readonly patchVersionsService: PatchVersionsService,
+  ) {}
 
   @Get('config')
   getConfig() {
@@ -24,6 +28,12 @@ export class LauncherController {
   @Get('games/:slug/latest')
   getLatestPatch(@Param('slug') slug: string) {
     return this.launcherService.getLatestPatch(slug);
+  }
+
+  @Get('patches/:patchVersionId/manifest')
+  @HttpCode(HttpStatus.OK)
+  getManifest(@Param('patchVersionId') id: string) {
+    return this.patchVersionsService.getManifest(id);
   }
 
   @Post('download-events')

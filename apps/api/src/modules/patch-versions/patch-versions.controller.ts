@@ -65,7 +65,7 @@ export class PatchVersionsController {
     return this.patchVersionsService.publish(id);
   }
 
-  /** Public: get the manifest for a published patch */
+  /** Moved to LauncherController (public, no auth). Kept for backward compat behind admin guard. */
   @Get('launcher/patches/:patchVersionId/manifest')
   @HttpCode(HttpStatus.OK)
   getManifest(@Param('patchVersionId') id: string) {
