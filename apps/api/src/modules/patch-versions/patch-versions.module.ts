@@ -7,6 +7,7 @@ import { PatchFile, PatchFileSchema } from './schemas/patch-file.schema';
 import { Game, GameSchema } from '../games/schemas/game.schema';
 import { AdminSessionModule } from '../admin-session/admin-session.module';
 import { R2Module } from '../r2/r2.module';
+import { QueueModule } from '../queue/queue.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { R2Module } from '../r2/r2.module';
     ]),
     AdminSessionModule,
     R2Module,
+    QueueModule,
   ],
   controllers: [PatchVersionsController],
   providers: [PatchVersionsService],

@@ -11,6 +11,7 @@ import { PatchVersion, PatchVersionDocument } from '../patch-versions/schemas/pa
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { GameStatus } from '@gamehub/shared';
+import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class GamesService {
@@ -18,6 +19,7 @@ export class GamesService {
     @InjectModel(Game.name) private readonly gameModel: Model<GameDocument>,
     @InjectModel(PatchVersion.name)
     private readonly patchVersionModel: Model<PatchVersionDocument>,
+    private readonly queueService: QueueService,
   ) {}
 
   async findAll(status?: GameStatus): Promise<GameDocument[]> {
@@ -76,7 +78,8 @@ export class GamesService {
     game.status = GameStatus.DELETING;
     game.deletedAt = new Date();
     await game.save();
-    // R2 cleanup is triggered via a worker queue job
+    // Enqueue R2 cleanup job
+    await this.queueService.enqueueDeleteGame(game._id.toString());
   }
 
   private assertObjectId(id: string): void {

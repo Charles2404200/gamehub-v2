@@ -71,4 +71,10 @@ export class PatchVersionsController {
   getManifest(@Param('patchVersionId') id: string) {
     return this.patchVersionsService.getManifest(id);
   }
+
+  /** Delete a patch version */
+  @Delete('admin/patches/:patchVersionId')
+  delete(@Param('patchVersionId') id: string) {
+    return this.patchVersionsService.delete(id);
+  }
 }

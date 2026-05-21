@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import { Redis } from 'ioredis';
 import { deleteGameR2Processor, DELETE_GAME_R2_QUEUE } from './jobs/delete-game-r2.job';
 import { deletePatchR2Processor, DELETE_PATCH_R2_QUEUE } from './jobs/delete-patch-r2.job';
+import { verifyUploadProcessor, VERIFY_UPLOAD_QUEUE } from './jobs/verify-upload.job';
+import { cleanupExpiredSessionsProcessor, CLEANUP_EXPIRED_SESSIONS_QUEUE } from './jobs/cleanup-expired-sessions.job';
 import { Worker } from 'bullmq';
 
 const MONGODB_URI = process.env.MONGODB_URI ?? '';
@@ -34,7 +36,17 @@ async function main() {
     concurrency: 4,
   });
 
-  for (const w of [deleteGameWorker, deletePatchWorker]) {
+  const verifyUploadWorker = new Worker(VERIFY_UPLOAD_QUEUE, verifyUploadProcessor, {
+    connection,
+    concurrency: 2,
+  });
+
+  const cleanupSessionsWorker = new Worker(CLEANUP_EXPIRED_SESSIONS_QUEUE, cleanupExpiredSessionsProcessor, {
+    connection,
+    concurrency: 1,
+  });
+
+  for (const w of [deleteGameWorker, deletePatchWorker, verifyUploadWorker, cleanupSessionsWorker]) {
     w.on('completed', (job) => console.log(`[worker] ${w.name} job ${job.id} completed`));
     w.on('failed', (job, err) =>
       console.error(`[worker] ${w.name} job ${job?.id} failed:`, err.message),
@@ -45,7 +57,7 @@ async function main() {
 
   process.on('SIGTERM', async () => {
     console.log('[worker] SIGTERM received — shutting down');
-    await Promise.all([deleteGameWorker.close(), deletePatchWorker.close()]);
+    await Promise.all([deleteGameWorker.close(), deletePatchWorker.close(), verifyUploadWorker.close(), cleanupSessionsWorker.close()]);
     await mongoose.disconnect();
     connection.disconnect();
     process.exit(0);

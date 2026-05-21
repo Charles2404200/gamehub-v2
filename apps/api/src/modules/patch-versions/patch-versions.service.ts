@@ -10,6 +10,7 @@ import { PatchVersion, PatchVersionDocument } from './schemas/patch-version.sche
 import { PatchFile, PatchFileDocument } from './schemas/patch-file.schema';
 import { Game, GameDocument } from '../games/schemas/game.schema';
 import { R2Service } from '../r2/r2.service';
+import { QueueService } from '../queue/queue.service';
 import { CreatePatchVersionDto } from './dto/create-patch-version.dto';
 import { PresignFilesDto } from './dto/presign-files.dto';
 import { PatchStatus, PatchMode, PatchManifest } from '@gamehub/shared';
@@ -24,6 +25,7 @@ export class PatchVersionsService {
     @InjectModel(Game.name)
     private readonly gameModel: Model<GameDocument>,
     private readonly r2Service: R2Service,
+    private readonly queueService: QueueService,
   ) {}
 
   async findByGame(gameId: string): Promise<PatchVersionDocument[]> {
@@ -234,5 +236,30 @@ export class PatchVersionsService {
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException(`Invalid id: "${id}"`);
     }
+  }
+
+  /**
+   * Delete a patch version and enqueue R2 cleanup job
+   * Only allowed for DRAFT or ARCHIVED patches
+   */
+  async delete(patchVersionId: string): Promise<void> {
+    this.assertObjectId(patchVersionId);
+
+    const patch = await this.findById(patchVersionId);
+
+    if (![PatchStatus.DRAFT, PatchStatus.ARCHIVED, PatchStatus.FAILED].includes(patch.status)) {
+      throw new BadRequestException(
+        `Cannot delete patch with status ${patch.status}. Only DRAFT, ARCHIVED, or FAILED patches can be deleted.`,
+      );
+    }
+
+    // Delete all patch files from MongoDB
+    await this.patchFileModel.deleteMany({ patchVersionId: patch._id });
+
+    // Delete patch version from MongoDB
+    await this.patchVersionModel.findByIdAndDelete(patchVersionId);
+
+    // Enqueue R2 cleanup job
+    await this.queueService.enqueueDeletePatch(patchVersionId);
   }
 }
