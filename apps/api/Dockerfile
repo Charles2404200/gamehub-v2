@@ -26,9 +26,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy node_modules from builder (root .pnpm store + per-package symlinks)
+# Copy node_modules from builder (root .pnpm store + per-package symlinks for each workspace package)
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=builder /app/packages/r2-client/node_modules ./packages/r2-client/node_modules
 
 # Copy built API and shared packages
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
