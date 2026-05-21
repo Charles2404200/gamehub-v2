@@ -7,8 +7,6 @@ import {
   Body,
   Param,
   UseGuards,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard';
 import { PatchVersionsService } from './patch-versions.service';
@@ -63,13 +61,6 @@ export class PatchVersionsController {
   @Post('admin/patches/:patchVersionId/publish')
   publish(@Param('patchVersionId') id: string) {
     return this.patchVersionsService.publish(id);
-  }
-
-  /** Moved to LauncherController (public, no auth). Kept for backward compat behind admin guard. */
-  @Get('launcher/patches/:patchVersionId/manifest')
-  @HttpCode(HttpStatus.OK)
-  getManifest(@Param('patchVersionId') id: string) {
-    return this.patchVersionsService.getManifest(id);
   }
 
   /** Delete a patch version */
