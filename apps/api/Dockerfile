@@ -27,13 +27,19 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Copy pruned workspace structure first
 COPY --from=pruner /app/out/json/ .
 COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
-# Copy built packages WITH package.json (needed for module resolution)
+# Copy built packages WITH package.json files BEFORE pnpm install
+# This ensures pnpm sets up symlinks correctly
 COPY --from=builder /app/packages/shared ./packages/shared
 COPY --from=builder /app/packages/r2-client ./packages/r2-client
+
+# Now install with proper package structure
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+
+# Copy built API dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3001
