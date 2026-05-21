@@ -31,6 +31,7 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
   const [installedVersion, setInstalledVersion] = useState<string | null>(null);
   const [showInstaller, setShowInstaller] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'install'>('info');
 
   useEffect(() => {
     if (!slug) return;
@@ -175,34 +176,71 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
       </div>
 
       {/* ── Content ── */}
-      <div className="px-4 pb-8 space-y-5">
+      <div className="px-4 pb-8">
         {/* Title */}
-        <div>
-          <h1 className="text-xl font-bold leading-tight text-white">{game.title}</h1>
+        <h1 className="text-xl font-bold leading-tight text-white mb-3">{game.title}</h1>
+
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-zinc-800 mb-4">
+          {(['info', 'install'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab
+                  ? 'border-red-500 text-white'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {tab === 'info' ? 'Thông tin game' : 'Cài đặt'}
+            </button>
+          ))}
         </div>
 
-        {/* Description */}
-        {game.description && (
-          <p className="text-sm text-zinc-300 leading-relaxed">{game.description}</p>
+        {activeTab === 'info' && (
+          <div className="space-y-5">
+            {game.description && (
+              <p className="text-sm text-zinc-300 leading-relaxed">{game.description}</p>
+            )}
+            {game.youtubeDemoUrl && (
+              <a
+                href={game.youtubeDemoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
+                </svg>
+                Xem trailer trên YouTube
+              </a>
+            )}
+            <InfoTab game={game} />
+          </div>
         )}
 
-        {/* YouTube */}
-        {game.youtubeDemoUrl && (
-          <a
-            href={game.youtubeDemoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
-              <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
-            </svg>
-            Xem trailer trên YouTube
-          </a>
+        {activeTab === 'install' && (
+          <div className="space-y-4 text-sm text-zinc-400">
+            {manifest ? (
+              <>
+                <p>
+                  Bấm nút <span className="text-white font-medium">Cài đặt</span> ở trên để bắt đầu
+                  cài bản việt hóa vào thư mục game của bạn.
+                </p>
+                {game.installGuide && (
+                  <button
+                    onClick={() => setShowGuide(true)}
+                    className="flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm"
+                  >
+                    <BookOpen size={14} /> Xem hướng dẫn chi tiết
+                  </button>
+                )}
+              </>
+            ) : (
+              <p className="text-zinc-500">Chưa có bản việt hóa nào.</p>
+            )}
+          </div>
         )}
-
-        {/* Credits */}
-        <InfoTab game={game} />
       </div>
 
       {/* Installer Dialog */}
