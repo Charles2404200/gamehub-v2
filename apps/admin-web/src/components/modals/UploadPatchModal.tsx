@@ -62,52 +62,62 @@ export default function UploadPatchModal({
     e.preventDefault();
 
     try {
-      // Create upload session
-      const session = await api
-        .post('/admin/patches/upload-session', {
-          gameId,
-          totalFiles: files.length,
-          totalSize: files.reduce((sum, f) => sum + f.file.size, 0),
+      // Step 1: Create patch version
+      const patch = await api
+        .post(`/admin/games/${gameId}/patches`, {
+          version: metadata.version,
+          title: metadata.title,
+          changelog: metadata.changelog || undefined,
+          mode: metadata.mode,
         })
         .then((r) => r.data);
 
+      const patchVersionId: string = patch._id;
+
       setUploadSession({
-        sessionId: session._id,
+        sessionId: patchVersionId,
         uploadedFiles: 0,
         totalFiles: files.length,
       });
 
-      // Get presigned URLs for all files
-      const presignedUrls = await api
-        .post('/admin/patches/presign-files', {
-          sessionId: session._id,
-          files: files.map((f) => ({
-            relativePath: f.relativePath,
-            sha256: f.sha256,
-            size: f.file.size,
-            contentType: f.file.type || 'application/octet-stream',
-          })),
-        })
-        .then((r) => r.data);
+      // Step 2: Presign all files
+      const presignedList: Array<{ relativePath: string; uploadUrl: string; r2Key: string }> =
+        await api
+          .post(`/admin/patches/${patchVersionId}/presign-files`, {
+            files: files.map((f) => ({
+              relativePath: f.relativePath,
+              sha256: f.sha256,
+              size: f.file.size,
+              contentType: f.file.type || 'application/octet-stream',
+            })),
+          })
+          .then((r) => r.data);
 
       setStep('uploading');
 
-      // Upload all files
-      const urlsByPath = new Map<string, string>(
-        presignedUrls.map((u: { filename: string; url: string }) => [u.filename, u.url]),
+      // Step 3: Upload all files to R2
+      const urlsByPath = new Map<string, { uploadUrl: string; r2Key: string }>(
+        presignedList.map((u) => [u.relativePath, { uploadUrl: u.uploadUrl, r2Key: u.r2Key }]),
       );
 
       await uploadFiles(files, async (file): Promise<string> => {
-        const url = urlsByPath.get(file.relativePath);
-        if (!url) throw new Error(`No presigned URL for ${file.relativePath}`);
-        return url;
+        const entry = urlsByPath.get(file.relativePath);
+        if (!entry) throw new Error(`No presigned URL for ${file.relativePath}`);
+        return entry.uploadUrl;
       });
 
-      // Mark upload as complete
-      await api.post('/admin/patches/complete-upload', {
-        sessionId: session._id,
-        patchVersionId: session.patchVersionId, // Will be created by API
-        metadata,
+      // Step 4: Complete upload
+      await api.post(`/admin/patches/${patchVersionId}/complete-upload`, {
+        files: files.map((f) => {
+          const entry = urlsByPath.get(f.relativePath)!;
+          return {
+            relativePath: f.relativePath,
+            r2Key: entry.r2Key,
+            size: f.file.size,
+            sha256: f.sha256,
+            contentType: f.file.type || 'application/octet-stream',
+          };
+        }),
       });
 
       setStep('success');
