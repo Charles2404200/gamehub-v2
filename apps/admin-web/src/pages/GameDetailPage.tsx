@@ -141,7 +141,7 @@ export default function GameDetailPage() {
             className="input font-mono"
             value={form.slug}
             onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-            pattern="[a-z0-9-]+"
+            pattern="[a-z0-9\-]+"
             required
           />
         </Field>
