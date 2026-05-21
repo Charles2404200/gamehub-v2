@@ -65,11 +65,26 @@ export class GamesService {
 
   async updateMedia(
     id: string,
-    media: { coverImage?: { key: string; url: string }; bannerImage?: { key: string; url: string } },
+    media: {
+      coverImage?: { key: string; url: string };
+      bannerImage?: { key: string; url: string };
+    },
   ): Promise<GameDocument> {
     const game = await this.findById(id);
     if (media.coverImage) game.coverImage = media.coverImage;
     if (media.bannerImage) game.bannerImage = media.bannerImage;
+    return game.save();
+  }
+
+  async addScreenshot(id: string, screenshot: { key: string; url: string }): Promise<GameDocument> {
+    const game = await this.findById(id);
+    game.screenshots = [...(game.screenshots ?? []), screenshot];
+    return game.save();
+  }
+
+  async removeScreenshot(id: string, key: string): Promise<GameDocument> {
+    const game = await this.findById(id);
+    game.screenshots = (game.screenshots ?? []).filter((s) => s.key !== key);
     return game.save();
   }
 

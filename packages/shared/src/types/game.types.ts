@@ -10,6 +10,13 @@ export interface GameImage {
   url: string;
 }
 
+export interface GameCredits {
+  production: string[];
+  technical: string[];
+  translation: string[];
+  testing: string[];
+}
+
 export interface Game {
   _id: string;
   slug: string;
@@ -20,7 +27,10 @@ export interface Game {
   installPathHints: string[];
   coverImage?: GameImage | null;
   bannerImage?: GameImage | null;
+  screenshots: GameImage[];
   youtubeDemoUrl?: string | null;
+  installGuide?: string | null;
+  credits: GameCredits;
   latestPatchVersionId?: string | null;
   createdAt: string;
   updatedAt: string;

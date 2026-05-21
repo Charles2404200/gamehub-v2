@@ -7,8 +7,32 @@ import {
   MinLength,
   MaxLength,
   Matches,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { GameStatus } from '@gamehub/shared';
+
+export class GameCreditsDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  production?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  technical?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  translation?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  testing?: string[];
+}
 
 export class CreateGameDto {
   @IsString()
@@ -45,4 +69,14 @@ export class CreateGameDto {
   @IsOptional()
   @IsUrl({ protocols: ['https'], require_protocol: true })
   youtubeDemoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  installGuide?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => GameCreditsDto)
+  credits?: GameCreditsDto;
 }
