@@ -10,6 +10,5 @@ RUN pnpm --filter @gamehub/admin-web exec vite build
 # ---- Serve static files ----
 FROM nginx:stable-alpine AS runner
 COPY --from=builder /app/apps/admin-web/dist /usr/share/nginx/html
-COPY apps/admin-web/nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+COPY apps/admin-web/nginx.conf /etc/nginx/templates/default.conf.template
 CMD ["nginx", "-g", "daemon off;"]
