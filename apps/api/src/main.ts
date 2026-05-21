@@ -16,11 +16,14 @@ async function bootstrap(): Promise<void> {
   // Security headers
   app.use(helmet());
 
-  // CORS: allow admin panel + Electron (no origin)
+  // CORS: allow admin panel + Electron (no origin) + launcher dev
   app.enableCors({
     origin: (origin, callback) => {
-      const adminOrigin = process.env.ADMIN_ORIGIN;
-      if (!origin || origin === adminOrigin) {
+      const allowed = (process.env.ALLOWED_ORIGINS ?? process.env.ADMIN_ORIGIN ?? '')
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      if (!origin || allowed.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error(`CORS: "${origin}" not allowed`));
