@@ -41,37 +41,76 @@ export default function UploadPatchModal({
 
   const { uploadFiles, uploadProgress, isUploading, error: uploadError } = useR2Upload();
 
-  async function addSelectedFiles(selectedFiles: File[], isFolder: boolean) {
-    if (selectedFiles.length === 0) return;
+  /** Recursively read a FileSystemEntry into { file, relativePath } pairs */
+  async function readEntry(
+    entry: FileSystemEntry,
+    parentPath = '',
+  ): Promise<{ file: File; relativePath: string }[]> {
+    if (entry.isFile) {
+      const fileEntry = entry as FileSystemFileEntry;
+      const file = await new Promise<File>((res) => fileEntry.file(res));
+      const relativePath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+      return [{ file, relativePath }];
+    } else {
+      const dirEntry = entry as FileSystemDirectoryEntry;
+      const reader = dirEntry.createReader();
+      const dirPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+      // readEntries may batch — call until empty
+      const allEntries: FileSystemEntry[] = [];
+      await new Promise<void>((res) => {
+        const read = () =>
+          reader.readEntries((batch) => {
+            if (batch.length === 0) { res(); return; }
+            allEntries.push(...batch);
+            read();
+          });
+        read();
+      });
+      const nested = await Promise.all(allEntries.map((e) => readEntry(e, dirPath)));
+      return nested.flat();
+    }
+  }
+
+  async function addRawFiles(pairs: { file: File; relativePath: string }[]) {
+    if (pairs.length === 0) return;
     setIsHashing(true);
     const filesWithHash: FileToUpload[] = await Promise.all(
-      selectedFiles.map(async (file) => ({
+      pairs.map(async ({ file, relativePath }) => ({
         file,
-        relativePath: isFolder ? (file.webkitRelativePath || file.name) : file.name,
+        relativePath,
         sha256: await computeFileSHA256(file),
         uploaded: false,
         progress: 0,
       })),
     );
     setFiles((prev) => {
-      // Deduplicate by relativePath
       const existing = new Set(prev.map((f) => f.relativePath));
-      const newOnes = filesWithHash.filter((f) => !existing.has(f.relativePath));
-      return [...prev, ...newOnes];
+      return [...prev, ...filesWithHash.filter((f) => !existing.has(f.relativePath))];
     });
     setIsHashing(false);
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const items = Array.from(e.dataTransfer.items);
+    const entries = items
+      .map((item) => item.webkitGetAsEntry())
+      .filter(Boolean) as FileSystemEntry[];
+    setIsHashing(true);
+    const all = (await Promise.all(entries.map((entry) => readEntry(entry)))).flat();
+    await addRawFiles(all);
   }
 
   async function handleFolderSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
     e.currentTarget.value = '';
-    await addSelectedFiles(selected, true);
+    await addRawFiles(selected.map((f) => ({ file: f, relativePath: f.webkitRelativePath || f.name })));
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
     e.currentTarget.value = '';
-    await addSelectedFiles(selected, false);
+    await addRawFiles(selected.map((f) => ({ file: f, relativePath: f.name })));
   }
 
   function removeFile(relativePath: string) {
@@ -178,46 +217,43 @@ export default function UploadPatchModal({
           {step === 'initial' && (
             <div className="space-y-4">
               {/* Hidden inputs */}
-              <input
-                ref={folderInputRef}
-                type="file"
-                multiple
-                onChange={handleFolderSelect}
-                className="hidden"
-                {...({ webkitdirectory: 'true' } as any)}
-              />
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
+              <input ref={folderInputRef} type="file" multiple onChange={handleFolderSelect} className="hidden" {...({ webkitdirectory: 'true' } as any)} />
+              <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
 
-              {/* Pick buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => folderInputRef.current?.click()}
-                  disabled={isHashing}
-                  className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg p-5
-                             hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
-                >
-                  <FolderOpen size={28} className="text-primary" />
-                  <span className="text-sm font-medium text-text-primary">Chọn thư mục</span>
-                  <span className="text-xs text-text-muted">Giữ nguyên cấu trúc</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isHashing}
-                  className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg p-5
-                             hover:border-primary/50 hover:bg-primary/5 transition-colors disabled:opacity-50"
-                >
-                  <FileUp size={28} className="text-primary" />
-                  <span className="text-sm font-medium text-text-primary">Chọn file lẻ</span>
-                  <span className="text-xs text-text-muted">.dll, .exe, .pak…</span>
-                </button>
+              {/* Drag & drop zone */}
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center
+                           hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              >
+                <Upload size={32} className="text-primary mx-auto mb-3" />
+                <p className="text-sm font-medium text-text-primary mb-1">
+                  Kéo thả file và thư mục vào đây
+                </p>
+                <p className="text-xs text-text-muted mb-4">
+                  Có thể kéo cùng lúc nhiều folder và file lẻ
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => folderInputRef.current?.click()}
+                    disabled={isHashing}
+                    className="inline-flex items-center gap-1.5 text-xs border border-border rounded-lg
+                               px-3 py-1.5 hover:bg-bg-elevated transition-colors disabled:opacity-50"
+                  >
+                    <FolderOpen size={13} className="text-primary" /> Chọn thư mục
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isHashing}
+                    className="inline-flex items-center gap-1.5 text-xs border border-border rounded-lg
+                               px-3 py-1.5 hover:bg-bg-elevated transition-colors disabled:opacity-50"
+                  >
+                    <FileUp size={13} className="text-primary" /> Chọn file lẻ
+                  </button>
+                </div>
               </div>
 
               {/* File list */}
