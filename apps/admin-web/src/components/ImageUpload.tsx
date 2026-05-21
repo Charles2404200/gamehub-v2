@@ -79,13 +79,12 @@ export default function ImageUpload({
         .then((r) => r.data);
 
       // Upload to R2
-      await uploadFile(presigned.url, file);
+      await uploadFile(presigned.uploadUrl, file);
 
       // Update game media metadata
       await api.patch(`/admin/games/${gameId}/media`, {
         [type === 'cover' ? 'coverImage' : 'bannerImage']: {
           key: presigned.key,
-          url: presigned.url,
         },
       });
 
