@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Upload, Link, Check } from 'lucide-react';
 import { useR2Upload } from '../lib/useR2Upload';
 import { api } from '../lib/api';
@@ -18,6 +18,10 @@ export default function ImageUpload({
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
+
+  useEffect(() => {
+    setPreview(currentUrl ?? null);
+  }, [currentUrl]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'file' | 'url'>('file');
@@ -34,7 +38,6 @@ export default function ImageUpload({
       await api.patch(`/admin/games/${gameId}/media`, {
         [field]: { key: trimmed, url: trimmed },
       });
-      setPreview(trimmed);
       setUrlInput('');
       onSuccess?.(trimmed);
     } catch {

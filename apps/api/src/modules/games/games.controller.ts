@@ -119,8 +119,8 @@ export class GamesController {
     @Param('id') id: string,
     @Body()
     body: {
-      coverImage?: { key: string };
-      bannerImage?: { key: string };
+      coverImage?: { key: string; url?: string };
+      bannerImage?: { key: string; url?: string };
     },
   ) {
     const media: Parameters<GamesService['updateMedia']>[1] = {};
@@ -128,13 +128,13 @@ export class GamesController {
     if (body.coverImage) {
       media.coverImage = {
         key: body.coverImage.key,
-        url: this.r2Service.getPublicUrl(body.coverImage.key),
+        url: body.coverImage.url ?? this.r2Service.getPublicUrl(body.coverImage.key),
       };
     }
     if (body.bannerImage) {
       media.bannerImage = {
         key: body.bannerImage.key,
-        url: this.r2Service.getPublicUrl(body.bannerImage.key),
+        url: body.bannerImage.url ?? this.r2Service.getPublicUrl(body.bannerImage.key),
       };
     }
 

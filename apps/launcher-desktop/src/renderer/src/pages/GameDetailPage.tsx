@@ -76,9 +76,9 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
       </div>
 
       {/* Main layout */}
-      <div className="px-5 pb-8 -mt-6 flex-1">
+      <div className="px-5 pb-8 flex-1">
         {/* Title + action buttons */}
-        <div className="flex items-end justify-between gap-3 mb-4">
+        <div className="flex items-end justify-between gap-3 mb-4 pt-3">
           <div>
             <h1 className="text-2xl font-bold leading-tight">{game.title}</h1>
             <div className="flex items-center gap-2 mt-1">
@@ -224,6 +224,21 @@ function InfoTab({ game }: { game: Game }) {
     <div className="space-y-5">
       {game.description && (
         <p className="text-sm text-zinc-300 leading-relaxed">{game.description}</p>
+      )}
+
+      {/* YouTube trailer */}
+      {game.youtubeDemoUrl && (
+        <a
+          href={game.youtubeDemoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+            <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
+          </svg>
+          Xem trailer trên YouTube
+        </a>
       )}
 
       {/* Credits */}
