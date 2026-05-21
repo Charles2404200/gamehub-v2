@@ -21,24 +21,21 @@ RUN turbo run build --filter=@gamehub/worker
 
 # ---- Production image ----
 FROM node:20-alpine AS runner
-RUN npm install -g pnpm@10.33.0
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy pruned workspace structure first
-COPY --from=pruner /app/out/json/ .
-COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+# Copy node_modules from builder (has all dependencies already installed)
+COPY --from=builder /app/node_modules ./node_modules
 
-# Copy built packages WITH package.json files BEFORE pnpm install
-# This ensures pnpm sets up symlinks correctly
-COPY --from=builder /app/packages/shared ./packages/shared
-COPY --from=builder /app/packages/r2-client ./packages/r2-client
-
-# Now install with proper package structure
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
-
-# Copy built worker dist
+# Copy built worker and shared packages
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/r2-client/dist ./packages/r2-client/dist
+
+# Copy package.json files for reference
+COPY --from=builder /app/apps/worker/package.json ./apps/worker/package.json
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/r2-client/package.json ./packages/r2-client/package.json
 
 CMD ["node", "apps/worker/dist/index.js"]
