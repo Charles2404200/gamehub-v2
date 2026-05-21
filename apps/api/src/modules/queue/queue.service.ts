@@ -13,6 +13,7 @@ export class QueueService {
   private readonly logger = new Logger(QueueService.name);
   private readonly redisUrl: string;
   private redis: Redis | null = null;
+  private redisLoggedOnce = false;
 
   private deleteGameQueue: Queue<{ gameId: string }> | null = null;
   private deletePatchQueue: Queue<{ patchVersionId: string }> | null = null;
@@ -36,22 +37,30 @@ export class QueueService {
     }
 
     try {
-      this.redis = new Redis(this.redisUrl, {
+      const tempRedis = new Redis(this.redisUrl, {
         maxRetriesPerRequest: null,
         lazyConnect: true,
         enableOfflineQueue: false,
-      });
-      this.redis.on('error', (err: Error) => {
-        this.logger.warn(`Redis error (queues disabled): ${err.message}`);
+        retryStrategy: () => null, // don't retry on initial connect check
       });
 
-      await this.redis.ping().catch(() => {
+      try {
+        await tempRedis.connect();
+        await tempRedis.ping();
+      } catch {
+        await tempRedis.quit().catch(() => {});
         this.logger.warn('Redis unreachable — queue jobs disabled.');
-        this.redis = null;
         return;
-      });
+      }
 
-      if (!this.redis) return;
+      // Redis is available — use it with normal retry
+      this.redis = tempRedis;
+      this.redis.on('error', (err: Error) => {
+        if (!this.redisLoggedOnce) {
+          this.logger.warn(`Redis error (queues disabled): ${err.message}`);
+          this.redisLoggedOnce = true;
+        }
+      });
 
       this.deleteGameQueue = new Queue(DELETE_GAME_R2_QUEUE, { connection: this.redis });
       this.deletePatchQueue = new Queue(DELETE_PATCH_R2_QUEUE, { connection: this.redis });
