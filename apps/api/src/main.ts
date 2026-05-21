@@ -16,17 +16,18 @@ async function bootstrap(): Promise<void> {
   // Security headers
   app.use(helmet());
 
-  // CORS: allow admin panel + Electron (no origin) + launcher dev
+  // CORS: allow admin panel + Electron (no origin) + all localhost in dev
   app.enableCors({
     origin: (origin, callback) => {
       const allowed = (process.env.ALLOWED_ORIGINS ?? process.env.ADMIN_ORIGIN ?? '')
         .split(',')
         .map((o) => o.trim())
         .filter(Boolean);
-      if (!origin || allowed.includes(origin)) {
+      const isLocalhost = origin?.startsWith('http://localhost:');
+      if (!origin || allowed.includes(origin) || isLocalhost) {
         callback(null, true);
       } else {
-        callback(new Error(`CORS: "${origin}" not allowed`));
+        callback(null, false);
       }
     },
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
