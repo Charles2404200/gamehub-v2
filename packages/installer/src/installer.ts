@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as https from 'https';
 import * as http from 'http';
+import type { IncomingMessage } from 'http';
 import type { InstallOptions, InstallReceipt, InstalledFile } from './types';
 
 /**
@@ -30,30 +31,47 @@ function assertWithinBase(resolvedPath: string, resolvedBase: string): void {
 }
 
 /**
- * Downloads a URL to a local file path.
+ * Downloads a URL to a local file path (follows up to 5 redirects).
  * Returns the SHA-256 hex digest of the downloaded content.
  */
 async function downloadFile(
   url: string,
   destPath: string,
   onBytes?: (bytes: number) => void,
+  redirectsLeft = 5,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
 
-    const file = fs.createWriteStream(destPath);
-    const hash = crypto.createHash('sha256');
-
     const client = url.startsWith('https://') ? https : http;
 
     client
-      .get(url, (response) => {
+      .get(url, (response: IncomingMessage) => {
+        // Follow redirects (301/302/307/308)
+        if (
+          response.statusCode &&
+          response.statusCode >= 300 &&
+          response.statusCode < 400 &&
+          response.headers.location
+        ) {
+          if (redirectsLeft <= 0) {
+            reject(new Error(`Too many redirects downloading "${url}"`));
+            return;
+          }
+          response.resume();
+          resolve(downloadFile(response.headers.location, destPath, onBytes, redirectsLeft - 1));
+          return;
+        }
+
         if (response.statusCode !== 200) {
-          file.close();
-          fs.unlink(destPath, () => {});
+          response.resume();
           reject(new Error(`HTTP ${response.statusCode ?? 'unknown'} downloading "${url}"`));
           return;
         }
+
+        const file = fs.createWriteStream(destPath);
+        const hash = crypto.createHash('sha256');
+
         response.on('data', (chunk: Buffer) => {
           hash.update(chunk);
           onBytes?.(chunk.length);
@@ -61,6 +79,10 @@ async function downloadFile(
         response.pipe(file);
         file.on('finish', () => {
           file.close(() => resolve(hash.digest('hex')));
+        });
+        file.on('error', (err) => {
+          fs.unlink(destPath, () => {});
+          reject(err);
         });
       })
       .on('error', (err) => {
