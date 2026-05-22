@@ -11,6 +11,8 @@ export interface PresignPutOptions {
   contentType: string;
   /** Seconds until URL expires. Default: 3600 */
   expiresIn?: number;
+  /** Cache-Control header stored on the object (e.g. 'public, max-age=31536000, immutable') */
+  cacheControl?: string;
 }
 
 export interface PresignGetOptions {

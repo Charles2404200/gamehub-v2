@@ -39,6 +39,7 @@ export class R2Client {
       Bucket: this.bucket,
       Key: options.key,
       ContentType: options.contentType,
+      CacheControl: options.cacheControl ?? 'public, max-age=31536000, immutable',
     });
     return getSignedUrl(this.s3, command, {
       expiresIn: options.expiresIn ?? 3600,

@@ -72,18 +72,28 @@ export function useR2Upload() {
       setIsUploading(true);
       setError(null);
 
-      try {
-        for (const fileToUpload of files) {
-          if (fileToUpload.uploaded) continue;
+      const CONCURRENT = 6; // upload 6 files in parallel
 
-          try {
-            const presignedUrl = await getPresignedUrl(fileToUpload);
-            await uploadFile(presignedUrl, fileToUpload.file);
-            fileToUpload.uploaded = true;
-            fileToUpload.progress = 100;
-          } catch (err) {
-            throw new Error(`Failed to upload ${fileToUpload.relativePath}: ${(err as Error).message}`);
-          }
+      try {
+        const pending = files.filter((f) => !f.uploaded);
+
+        // Process in concurrent batches
+        for (let i = 0; i < pending.length; i += CONCURRENT) {
+          const batch = pending.slice(i, i + CONCURRENT);
+          await Promise.all(
+            batch.map(async (fileToUpload) => {
+              try {
+                const presignedUrl = await getPresignedUrl(fileToUpload);
+                await uploadFile(presignedUrl, fileToUpload.file);
+                fileToUpload.uploaded = true;
+                fileToUpload.progress = 100;
+              } catch (err) {
+                throw new Error(
+                  `Failed to upload ${fileToUpload.relativePath}: ${(err as Error).message}`,
+                );
+              }
+            }),
+          );
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upload failed';

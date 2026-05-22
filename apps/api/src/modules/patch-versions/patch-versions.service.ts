@@ -203,17 +203,16 @@ export class PatchVersionsService {
     const game = await this.gameModel.findById(patch.gameId);
     if (!game) throw new NotFoundException(`Game not found`);
 
-    // Use presigned GET URLs (valid 12h) so files are downloadable even without public bucket
-    const filesWithUrls = await Promise.all(
-      patchFiles.map(async (f) => ({
-        relativePath: f.relativePath,
-        url: await this.r2Service.presignGet(f.r2Key, 43200),
-        r2Key: f.r2Key,
-        size: f.size,
-        sha256: f.sha256,
-        overwrite: true,
-      })),
-    );
+    // Use Cloudflare CDN public URLs — served from edge cache, much faster than presigned storage URLs.
+    // Requires the R2 bucket to have "Allow Access" enabled in Cloudflare dashboard.
+    const filesWithUrls = patchFiles.map((f) => ({
+      relativePath: f.relativePath,
+      url: this.r2Service.getPublicUrl(f.r2Key),
+      r2Key: f.r2Key,
+      size: f.size,
+      sha256: f.sha256,
+      overwrite: true,
+    }));
 
     return {
       schemaVersion: 1,
