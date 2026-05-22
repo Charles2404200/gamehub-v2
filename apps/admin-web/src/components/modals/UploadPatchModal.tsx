@@ -32,6 +32,8 @@ export default function UploadPatchModal({
   const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const [metadata, setMetadata] = useState({
     version: '',
     title: '',
@@ -119,17 +121,30 @@ export default function UploadPatchModal({
 
   async function handleMetadataSubmit(e: FormEvent) {
     e.preventDefault();
+    setErrorMessage(null);
 
     try {
       // Step 1: Create patch version
-      const patch = await api
-        .post(`/admin/games/${gameId}/patches`, {
-          version: metadata.version,
-          title: metadata.title,
-          changelog: metadata.changelog || undefined,
-          mode: metadata.mode,
-        })
-        .then((r) => r.data);
+      let patch: { _id: string };
+      try {
+        patch = await api
+          .post(`/admin/games/${gameId}/patches`, {
+            version: metadata.version,
+            title: metadata.title,
+            changelog: metadata.changelog || undefined,
+            mode: metadata.mode,
+          })
+          .then((r) => r.data);
+      } catch (err: any) {
+        if (err?.response?.status === 409) {
+          setErrorMessage(
+            `Phiên bản "${metadata.version}" đã tồn tại. Hãy đổi tên phiên bản hoặc chọn mode "Replace Existing".`,
+          );
+          setStep('error');
+          return;
+        }
+        throw err;
+      }
 
       const patchVersionId: string = patch._id;
 
@@ -139,11 +154,14 @@ export default function UploadPatchModal({
         totalFiles: files.length,
       });
 
-      // Step 2: Presign all files
-      const presignedList: Array<{ relativePath: string; uploadUrl: string; r2Key: string }> =
-        await api
+      // Step 2: Presign all files — batch 100 at a time to stay within body limits
+      const BATCH = 100;
+      const presignedList: Array<{ relativePath: string; uploadUrl: string; r2Key: string }> = [];
+      for (let i = 0; i < files.length; i += BATCH) {
+        const chunk = files.slice(i, i + BATCH);
+        const result = await api
           .post(`/admin/patches/${patchVersionId}/presign-files`, {
-            files: files.map((f) => ({
+            files: chunk.map((f) => ({
               relativePath: f.relativePath,
               sha256: f.sha256,
               size: f.file.size,
@@ -151,6 +169,8 @@ export default function UploadPatchModal({
             })),
           })
           .then((r) => r.data);
+        presignedList.push(...result);
+      }
 
       setStep('uploading');
 
@@ -165,7 +185,7 @@ export default function UploadPatchModal({
         return entry.uploadUrl;
       });
 
-      // Step 4: Complete upload
+      // Step 4: Complete upload — single call (body limit now 10mb on server)
       await api.post(`/admin/patches/${patchVersionId}/complete-upload`, {
         files: files.map((f) => {
           const entry = urlsByPath.get(f.relativePath)!;
@@ -187,8 +207,9 @@ export default function UploadPatchModal({
         onSuccess?.();
         onClose();
       }, 1500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload failed:', err);
+      setErrorMessage(err?.response?.data?.message ?? err?.message ?? 'Lỗi không xác định');
       setStep('error');
     }
   }
@@ -453,14 +474,17 @@ export default function UploadPatchModal({
             <div className="text-center py-8">
               <AlertCircle size={48} className="mx-auto text-primary mb-3" />
               <h3 className="text-lg font-semibold text-primary">Upload Failed</h3>
-              <p className="text-text-muted text-sm mt-1">{uploadError}</p>
+              <p className="text-text-muted text-sm mt-1 max-w-sm mx-auto">
+                {errorMessage ?? uploadError ?? 'Đã xảy ra lỗi không xác định.'}
+              </p>
               <button
                 onClick={() => {
+                  setErrorMessage(null);
                   setStep('metadata');
                 }}
                 className="btn-primary mt-4"
               >
-                Retry
+                Thử lại
               </button>
             </div>
           )}

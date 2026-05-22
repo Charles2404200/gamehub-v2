@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import helmet from 'helmet';
+import { json } from 'express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -12,6 +13,9 @@ async function bootstrap(): Promise<void> {
   });
 
   const logger = new Logger('Bootstrap');
+
+  // Increase JSON body limit (default 100kb is too small for large patch presign batches)
+  app.use(json({ limit: '10mb' }));
 
   // Security headers
   app.use(helmet());
