@@ -49,11 +49,13 @@ export class PatchVersionsService {
     const game = await this.gameModel.findById(gameId);
     if (!game) throw new NotFoundException(`Game "${gameId}" not found`);
 
-    const exists = await this.patchVersionModel.findOne({
-      gameId: new Types.ObjectId(gameId),
-      version: dto.version,
-    });
-    if (exists) throw new ConflictException(`Version "${dto.version}" already exists for this game`);
+    if (!dto.mode || dto.mode === PatchMode.NEW_VERSION) {
+      const exists = await this.patchVersionModel.findOne({
+        gameId: new Types.ObjectId(gameId),
+        version: dto.version,
+      });
+      if (exists) throw new ConflictException(`Version "${dto.version}" already exists for this game`);
+    }
 
     const r2Prefix = `games/${gameId}/versions/`;
     const patch = new this.patchVersionModel({
