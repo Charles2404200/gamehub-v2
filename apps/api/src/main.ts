@@ -1,21 +1,23 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
-import { json } from 'express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['log', 'error', 'warn'],
+    bodyParser: false,
   });
 
-  const logger = new Logger('Bootstrap');
+  // Increase JSON body limit (default 100kb too small for large patch presign batches)
+  app.useBodyParser('json', { limit: '10mb' });
+  app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
 
-  // Increase JSON body limit (default 100kb is too small for large patch presign batches)
-  app.use(json({ limit: '10mb' }));
+  const logger = new Logger('Bootstrap');
 
   // Security headers
   app.use(helmet());
