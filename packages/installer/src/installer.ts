@@ -6,6 +6,10 @@ import * as http from 'http';
 import type { IncomingMessage } from 'http';
 import type { InstallOptions, InstallReceipt, InstalledFile } from './types';
 
+const DOWNLOAD_CONCURRENCY = 4;
+const HTTP_KEEP_ALIVE_AGENT = new http.Agent({ keepAlive: true, maxSockets: DOWNLOAD_CONCURRENCY });
+const HTTPS_KEEP_ALIVE_AGENT = new https.Agent({ keepAlive: true, maxSockets: DOWNLOAD_CONCURRENCY });
+
 /**
  * Validates that a relative path does not escape its parent directory.
  * Throws on absolute paths or path traversal attempts.
@@ -45,9 +49,10 @@ async function downloadFile(
     fs.mkdirSync(path.dirname(destPath), { recursive: true });
 
     const client = url.startsWith('https://') ? https : http;
+    const agent = url.startsWith('https://') ? HTTPS_KEEP_ALIVE_AGENT : HTTP_KEEP_ALIVE_AGENT;
 
     client
-      .get(url, (response: IncomingMessage) => {
+      .get(url, { agent }, (response: IncomingMessage) => {
         // Follow redirects (301/302/307/308)
         if (
           response.statusCode &&
@@ -129,35 +134,52 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
   const resolvedGamePath = path.resolve(gamePath);
 
   // ── Phase 1 & 2: Download + Verify ──────────────────────────────────────
-  for (let i = 0; i < manifest.files.length; i++) {
-    const file = manifest.files[i];
-    assertSafeRelativePath(file.relativePath);
+  const downloadedHashes: Array<{ file: (typeof manifest.files)[number]; current: number; downloadedHash: string }> = [];
+  let nextDownloadIndex = 0;
 
-    const cachePath = path.join(cacheDir, manifest.patchVersionId, file.relativePath);
+  const downloadWorker = async (): Promise<void> => {
+    while (nextDownloadIndex < manifest.files.length) {
+      const index = nextDownloadIndex++;
+      const file = manifest.files[index];
+      assertSafeRelativePath(file.relativePath);
 
-    onProgress?.({
-      phase: 'downloading',
-      current: i + 1,
-      total: totalFiles,
-      currentFile: file.relativePath,
-      bytesDownloaded,
-      totalBytes,
-      percent: getPercent(),
-    });
+      const cachePath = path.join(cacheDir, manifest.patchVersionId, file.relativePath);
+      const current = index + 1;
 
-    const downloadedHash = await downloadFile(file.url, cachePath, (bytes) => {
-      bytesDownloaded += bytes;
       onProgress?.({
         phase: 'downloading',
-        current: i + 1,
+        current,
         total: totalFiles,
         currentFile: file.relativePath,
         bytesDownloaded,
         totalBytes,
         percent: getPercent(),
       });
-    });
 
+      const downloadedHash = await downloadFile(file.url, cachePath, (bytes) => {
+        bytesDownloaded += bytes;
+        onProgress?.({
+          phase: 'downloading',
+          current,
+          total: totalFiles,
+          currentFile: file.relativePath,
+          bytesDownloaded,
+          totalBytes,
+          percent: getPercent(),
+        });
+      });
+
+      downloadedHashes[index] = { file, current, downloadedHash };
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(DOWNLOAD_CONCURRENCY, manifest.files.length) }, () =>
+      downloadWorker(),
+    ),
+  );
+
+  for (const { file, current, downloadedHash } of downloadedHashes) {
     if (downloadedHash !== file.sha256) {
       throw new Error(
         `Checksum mismatch for "${file.relativePath}". ` +
@@ -167,7 +189,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
 
     onProgress?.({
       phase: 'verifying',
-      current: i + 1,
+      current,
       total: totalFiles,
       currentFile: file.relativePath,
       bytesDownloaded,
