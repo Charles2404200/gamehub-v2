@@ -72,29 +72,32 @@ export function useR2Upload() {
       setIsUploading(true);
       setError(null);
 
-      const CONCURRENT = 6; // upload 6 files in parallel
+      const CONCURRENT = 10; // keep more sockets busy for better throughput
 
       try {
         const pending = files.filter((f) => !f.uploaded);
+        let nextIndex = 0;
 
-        // Process in concurrent batches
-        for (let i = 0; i < pending.length; i += CONCURRENT) {
-          const batch = pending.slice(i, i + CONCURRENT);
-          await Promise.all(
-            batch.map(async (fileToUpload) => {
-              try {
-                const presignedUrl = await getPresignedUrl(fileToUpload);
-                await uploadFile(presignedUrl, fileToUpload.file);
-                fileToUpload.uploaded = true;
-                fileToUpload.progress = 100;
-              } catch (err) {
-                throw new Error(
-                  `Failed to upload ${fileToUpload.relativePath}: ${(err as Error).message}`,
-                );
-              }
-            }),
-          );
-        }
+        const worker = async () => {
+          while (nextIndex < pending.length) {
+            const index = nextIndex++;
+            const fileToUpload = pending[index];
+            try {
+              const presignedUrl = await getPresignedUrl(fileToUpload);
+              await uploadFile(presignedUrl, fileToUpload.file);
+              fileToUpload.uploaded = true;
+              fileToUpload.progress = 100;
+            } catch (err) {
+              throw new Error(
+                `Failed to upload ${fileToUpload.relativePath}: ${(err as Error).message}`,
+              );
+            }
+          }
+        };
+
+        await Promise.all(
+          Array.from({ length: Math.min(CONCURRENT, pending.length) }, () => worker()),
+        );
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Upload failed';
         setError(message);

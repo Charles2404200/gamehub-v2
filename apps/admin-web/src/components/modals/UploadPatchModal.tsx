@@ -154,44 +154,53 @@ export default function UploadPatchModal({
         totalFiles: files.length,
       });
 
-      // Step 2: Presign all files — batch 100 at a time to stay within body limits
-      const BATCH = 100;
-      const presignedList: Array<{ relativePath: string; uploadUrl: string; r2Key: string }> = [];
-      for (let i = 0; i < files.length; i += BATCH) {
-        const chunk = files.slice(i, i + BATCH);
-        const result = await api
-          .post(`/admin/patches/${patchVersionId}/presign-files`, {
-            files: chunk.map((f) => ({
-              relativePath: f.relativePath,
-              sha256: f.sha256,
-              size: f.file.size,
-              contentType: f.file.type || 'application/octet-stream',
-            })),
-          })
-          .then((r) => r.data);
-        presignedList.push(...result);
-      }
-
       setStep('uploading');
 
-      // Step 3: Upload all files to R2
-      const urlsByPath = new Map<string, { uploadUrl: string; r2Key: string }>(
-        presignedList.map((u) => [u.relativePath, { uploadUrl: u.uploadUrl, r2Key: u.r2Key }]),
-      );
+      // Step 2 & 3: Presign + upload in chunks so uploads start immediately.
+      const BATCH = 250;
+      const uploadedEntries: Array<{ relativePath: string; r2Key: string }> = [];
 
-      await uploadFiles(files, async (file): Promise<string> => {
-        const entry = urlsByPath.get(file.relativePath);
-        if (!entry) throw new Error(`No presigned URL for ${file.relativePath}`);
-        return entry.uploadUrl;
-      });
+      for (let i = 0; i < files.length; i += BATCH) {
+        const chunk = files.slice(i, i + BATCH);
+        const presignedList: Array<{ relativePath: string; uploadUrl: string; r2Key: string }> =
+          await api
+            .post(`/admin/patches/${patchVersionId}/presign-files`, {
+              files: chunk.map((f) => ({
+                relativePath: f.relativePath,
+                sha256: f.sha256,
+                size: f.file.size,
+                contentType: f.file.type || 'application/octet-stream',
+              })),
+            })
+            .then((r) => r.data);
 
-      // Step 4: Complete upload — single call (body limit now 10mb on server)
+        const urlsByPath = new Map<string, { uploadUrl: string; r2Key: string }>(
+          presignedList.map((u) => [u.relativePath, { uploadUrl: u.uploadUrl, r2Key: u.r2Key }]),
+        );
+
+        await uploadFiles(chunk, async (file): Promise<string> => {
+          const entry = urlsByPath.get(file.relativePath);
+          if (!entry) throw new Error(`No presigned URL for ${file.relativePath}`);
+          return entry.uploadUrl;
+        });
+
+        for (const f of chunk) {
+          const entry = urlsByPath.get(f.relativePath);
+          if (!entry) throw new Error(`No uploaded r2Key for ${f.relativePath}`);
+          uploadedEntries.push({ relativePath: f.relativePath, r2Key: entry.r2Key });
+        }
+      }
+
+      const uploadedKeyByPath = new Map(uploadedEntries.map((e) => [e.relativePath, e.r2Key]));
+
+      // Step 4: Complete upload — single call
       await api.post(`/admin/patches/${patchVersionId}/complete-upload`, {
         files: files.map((f) => {
-          const entry = urlsByPath.get(f.relativePath)!;
+          const r2Key = uploadedKeyByPath.get(f.relativePath);
+          if (!r2Key) throw new Error(`Missing uploaded key for ${f.relativePath}`);
           return {
             relativePath: f.relativePath,
-            r2Key: entry.r2Key,
+            r2Key,
             size: f.file.size,
             sha256: f.sha256,
             contentType: f.file.type || 'application/octet-stream',
