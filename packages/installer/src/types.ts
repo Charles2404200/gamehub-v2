@@ -22,6 +22,7 @@ export interface InstallProgress {
   currentFile: string;
   bytesDownloaded: number;
   totalBytes: number;
+  percent: number;
 }
 
 export interface InstalledFile {

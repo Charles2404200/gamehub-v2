@@ -38,6 +38,7 @@ async function downloadFile(
   url: string,
   destPath: string,
   onBytes?: (bytes: number) => void,
+  onChunk?: () => void,
   redirectsLeft = 5,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -59,7 +60,7 @@ async function downloadFile(
             return;
           }
           response.resume();
-          resolve(downloadFile(response.headers.location, destPath, onBytes, redirectsLeft - 1));
+          resolve(downloadFile(response.headers.location, destPath, onBytes, onChunk, redirectsLeft - 1));
           return;
         }
 
@@ -75,6 +76,7 @@ async function downloadFile(
         response.on('data', (chunk: Buffer) => {
           hash.update(chunk);
           onBytes?.(chunk.length);
+          onChunk?.();
         });
         response.pipe(file);
         file.on('finish', () => {
@@ -121,6 +123,8 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
   const totalFiles = manifest.files.length;
   const totalBytes = manifest.totalSize;
   let bytesDownloaded = 0;
+  const getPercent = (): number =>
+    totalBytes > 0 ? Math.min(100, Math.round((bytesDownloaded / totalBytes) * 100)) : 0;
 
   const resolvedGamePath = path.resolve(gamePath);
 
@@ -138,10 +142,20 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       currentFile: file.relativePath,
       bytesDownloaded,
       totalBytes,
+      percent: getPercent(),
     });
 
     const downloadedHash = await downloadFile(file.url, cachePath, (bytes) => {
       bytesDownloaded += bytes;
+      onProgress?.({
+        phase: 'downloading',
+        current: i + 1,
+        total: totalFiles,
+        currentFile: file.relativePath,
+        bytesDownloaded,
+        totalBytes,
+        percent: getPercent(),
+      });
     });
 
     if (downloadedHash !== file.sha256) {
@@ -158,6 +172,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       currentFile: file.relativePath,
       bytesDownloaded,
       totalBytes,
+      percent: getPercent(),
     });
   }
 
@@ -180,6 +195,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
         currentFile: file.relativePath,
         bytesDownloaded,
         totalBytes,
+        percent: getPercent(),
       });
     }
   }
@@ -214,6 +230,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       currentFile: file.relativePath,
       bytesDownloaded,
       totalBytes,
+      percent: getPercent(),
     });
   }
 
@@ -224,6 +241,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
     currentFile: '',
     bytesDownloaded,
     totalBytes,
+    percent: 100,
   });
 
   return {
