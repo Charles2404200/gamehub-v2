@@ -12,11 +12,7 @@ export default function TitleBar() {
       className="h-9 bg-[#0d0d0d] border-b border-[#1e1e1e] flex items-center justify-between px-4 select-none shrink-0"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm font-bold text-red-500">GAME</span>
-        <span className="text-sm font-bold text-white">HUB</span>
-      </div>
+      <div className="flex-1" />
 
       {/* Window controls */}
       <div

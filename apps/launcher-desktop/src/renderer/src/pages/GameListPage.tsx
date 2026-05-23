@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Gamepad2, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { Game } from '@gamehub/shared';
 
 export default function GameListPage({ apiBase }: { apiBase: string }) {
@@ -27,8 +27,16 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
       {/* Header */}
       <div className="px-6 py-5 border-b border-[#1e1e1e]">
         <div className="flex items-center gap-3 mb-4">
-          <Gamepad2 size={20} className="text-red-500" />
-          <h1 className="text-lg font-bold">Games</h1>
+          <img
+            src="/Charles24-05.png"
+            alt="Charles24"
+            className="h-20 w-15 rounded-md object-contain shrink-0"
+            draggable={false}
+          />
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold leading-none text-white">Charles24 Việt Hóa</h1>
+            <p className="text-[11px] text-zinc-500 mt-1 uppercase tracking-[0.2em]">Games</p>
+          </div>
         </div>
         <div className="relative max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -69,7 +77,12 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Gamepad2 size={32} className="text-zinc-700" />
+                    <img
+                      src="/Charles24-05.png"
+                      alt="Charles24"
+                      className="h-10 w-10 opacity-40 object-contain"
+                      draggable={false}
+                    />
                   </div>
                 )}
               </div>
