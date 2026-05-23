@@ -65,185 +65,190 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
   return (
     <div className="h-full flex flex-col bg-[#0a0a0a] overflow-y-auto">
       {/* ── Top bar ── */}
-      <div className="sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur border-b border-zinc-800/60
-                      flex items-center justify-between px-4 py-2.5 shrink-0">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={15} /> Quay lại
-        </button>
-        <p className="text-sm font-medium text-zinc-200 truncate max-w-xs">{game.title}</p>
-        <div className="flex items-center gap-2">
-          {game.installGuide && (
-            <button
-              onClick={() => setShowGuide(true)}
-              className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700
-                         text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <BookOpen size={13} /> Hướng dẫn
-            </button>
-          )}
-          {manifest && (
-            <button
-              onClick={() => setShowInstaller(true)}
-              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs
-                         font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <Download size={13} />
-              {hasUpdate ? 'Cập nhật' : installedVersion ? 'Cài lại' : 'Cài đặt'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Hero: 2-column ── */}
-      <div className="flex gap-4 px-4 pt-4 pb-3 shrink-0">
-        {/* Left: screenshots */}
-        <div className="flex-1 min-w-0">
-          {screenshots.length > 0 ? (
-            <ScreenshotCarousel screenshots={screenshots} />
-          ) : game.bannerImage ? (
-            <div className="rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
-              <img src={game.bannerImage.url} alt="" className="w-full h-full object-contain" />
-            </div>
-          ) : (
-            <div className="rounded-xl bg-zinc-900 border border-zinc-800 flex items-center
-                            justify-center text-zinc-600 text-sm" style={{ aspectRatio: '16/9' }}>
-              Chưa có ảnh
-            </div>
-          )}
-        </div>
-
-        {/* Right: cover + info */}
-        <div className="w-44 shrink-0 flex flex-col gap-3">
-          {/* Cover */}
-          <div className="rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800"
-               style={{ aspectRatio: '3/4' }}>
-            {game.coverImage ? (
-              <img src={game.coverImage.url} alt={game.title}
-                   className="w-full h-full object-contain" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">
-                No cover
-              </div>
+      <div className="sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur border-b border-zinc-800/60 shrink-0">
+        <div className="max-w-[1480px] mx-auto w-full px-4 lg:px-8 py-2.5 flex items-center justify-between gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors shrink-0"
+          >
+            <ArrowLeft size={15} /> Quay lại
+          </button>
+          <p className="text-sm font-medium text-zinc-200 truncate max-w-[40vw] text-center">{game.title}</p>
+          <div className="flex items-center gap-2 shrink-0">
+            {game.installGuide && (
+              <button
+                onClick={() => setShowGuide(true)}
+                className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700
+                           text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <BookOpen size={13} /> Hướng dẫn
+              </button>
             )}
-          </div>
-
-          {/* Version badges */}
-          <div className="space-y-1">
-            {installedVersion && (
-              <div className="text-xs bg-green-500/10 border border-green-500/20 text-green-400
-                              px-2 py-1 rounded-lg text-center">
-                Đã cài v{installedVersion}
-              </div>
-            )}
-            {manifest && (
-              <div className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-300
-                              px-2 py-1 rounded-lg text-center">
-                Bản mới v{manifest.version}
-              </div>
-            )}
-            {hasUpdate && (
-              <div className="text-xs bg-red-500/10 border border-red-500/30 text-red-400
-                              px-2 py-1 rounded-lg text-center">
-                Có cập nhật
-              </div>
-            )}
-          </div>
-
-          {/* Action buttons */}
-          <div className="space-y-2 mt-auto">
             {manifest && (
               <button
                 onClick={() => setShowInstaller(true)}
-                className="w-full flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700
-                           text-white text-xs font-semibold py-2.5 rounded-xl transition-colors"
+                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs
+                           font-semibold px-3 py-1.5 rounded-lg transition-colors"
               >
                 <Download size={13} />
                 {hasUpdate ? 'Cập nhật' : installedVersion ? 'Cài lại' : 'Cài đặt'}
               </button>
             )}
-            {game.installGuide && (
-              <button
-                onClick={() => setShowGuide(true)}
-                className="w-full flex items-center justify-center gap-1.5 bg-zinc-800
-                           hover:bg-zinc-700 border border-zinc-700 text-white text-xs
-                           font-medium py-2 rounded-xl transition-colors"
-              >
-                <BookOpen size={12} /> Hướng dẫn
-              </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Hero: 2-column ── */}
+      <div className="max-w-[1480px] mx-auto w-full px-4 lg:px-8 pt-4 pb-3 shrink-0">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-5 xl:gap-8 items-start">
+          {/* Left: screenshots */}
+          <div className="min-w-0">
+            {screenshots.length > 0 ? (
+              <ScreenshotCarousel screenshots={screenshots} />
+            ) : game.bannerImage ? (
+              <div className="rounded-2xl overflow-hidden bg-black border border-zinc-800/80 max-w-[1040px] mx-auto xl:mx-0" style={{ aspectRatio: '16/9' }}>
+                <img src={game.bannerImage.url} alt="" className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center
+                              justify-center text-zinc-600 text-sm max-w-[1040px] mx-auto xl:mx-0" style={{ aspectRatio: '16/9' }}>
+                Chưa có ảnh
+              </div>
             )}
+          </div>
+
+          {/* Right: cover + info */}
+          <div className="w-full max-w-[280px] xl:max-w-none mx-auto xl:mx-0 shrink-0 flex flex-col gap-3 xl:sticky xl:top-20">
+            {/* Cover */}
+            <div className="rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800 w-full"
+                 style={{ aspectRatio: '3/4' }}>
+              {game.coverImage ? (
+                <img src={game.coverImage.url} alt={game.title}
+                     className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">
+                  No cover
+                </div>
+              )}
+            </div>
+
+            {/* Version badges */}
+            <div className="space-y-1.5">
+              {installedVersion && (
+                <div className="text-xs bg-green-500/10 border border-green-500/20 text-green-400
+                                px-3 py-2 rounded-xl text-center">
+                  Đã cài v{installedVersion}
+                </div>
+              )}
+              {manifest && (
+                <div className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-300
+                                px-3 py-2 rounded-xl text-center">
+                  Bản mới v{manifest.version}
+                </div>
+              )}
+              {hasUpdate && (
+                <div className="text-xs bg-red-500/10 border border-red-500/30 text-red-400
+                                px-3 py-2 rounded-xl text-center">
+                  Có cập nhật
+                </div>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2 mt-auto">
+              {manifest && (
+                <button
+                  onClick={() => setShowInstaller(true)}
+                  className="w-full flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700
+                             text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+                >
+                  <Download size={14} />
+                  {hasUpdate ? 'Cập nhật' : installedVersion ? 'Cài lại' : 'Cài đặt'}
+                </button>
+              )}
+              {game.installGuide && (
+                <button
+                  onClick={() => setShowGuide(true)}
+                  className="w-full flex items-center justify-center gap-1.5 bg-zinc-800
+                             hover:bg-zinc-700 border border-zinc-700 text-white text-sm
+                             font-medium py-2.5 rounded-xl transition-colors"
+                >
+                  <BookOpen size={13} /> Hướng dẫn
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* ── Content ── */}
-      <div className="px-4 pb-8">
+      <div className="max-w-[1480px] mx-auto w-full px-4 lg:px-8 pb-8">
         {/* Title */}
-        <h1 className="text-xl font-bold leading-tight text-white mb-3">{game.title}</h1>
+        <div className="max-w-[1040px]">
+          <h1 className="text-2xl lg:text-3xl font-bold leading-tight text-white mb-3">{game.title}</h1>
 
-        {/* Tabs */}
-        <div className="flex gap-1 border-b border-zinc-800 mb-4">
-          {(['info', 'install'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? 'border-red-500 text-white'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
-              }`}
-            >
-              {tab === 'info' ? 'Thông tin game' : 'Cài đặt'}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'info' && (
-          <div className="space-y-5">
-            {game.description && (
-              <p className="text-sm text-zinc-300 leading-relaxed">{game.description}</p>
-            )}
-            {game.youtubeDemoUrl && (
-              <a
-                href={game.youtubeDemoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+          {/* Tabs */}
+          <div className="flex gap-1 border-b border-zinc-800 mb-5 overflow-x-auto">
+            {(['info', 'install'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab
+                    ? 'border-red-500 text-white'
+                    : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                }`}
               >
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
-                </svg>
-                Xem trailer trên YouTube
-              </a>
-            )}
-            <InfoTab game={game} />
+                {tab === 'info' ? 'Thông tin game' : 'Cài đặt'}
+              </button>
+            ))}
           </div>
-        )}
 
-        {activeTab === 'install' && (
-          <div className="space-y-4 text-sm text-zinc-400">
-            {manifest ? (
-              <>
-                <p>
-                  Bấm nút <span className="text-white font-medium">Cài đặt</span> ở trên để bắt đầu
-                  cài bản việt hóa vào thư mục game của bạn.
-                </p>
-                {game.installGuide && (
-                  <button
-                    onClick={() => setShowGuide(true)}
-                    className="flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm"
-                  >
-                    <BookOpen size={14} /> Xem hướng dẫn chi tiết
-                  </button>
-                )}
-              </>
-            ) : (
-              <p className="text-zinc-500">Chưa có bản việt hóa nào.</p>
-            )}
-          </div>
-        )}
+          {activeTab === 'info' && (
+            <div className="space-y-5">
+              {game.description && (
+                <p className="text-sm lg:text-[15px] text-zinc-300 leading-7 max-w-[92ch]">{game.description}</p>
+              )}
+              {game.youtubeDemoUrl && (
+                <a
+                  href={game.youtubeDemoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
+                  </svg>
+                  Xem trailer trên YouTube
+                </a>
+              )}
+              <InfoTab game={game} />
+            </div>
+          )}
+
+          {activeTab === 'install' && (
+            <div className="space-y-4 text-sm text-zinc-400 rounded-2xl border border-zinc-800 bg-[#111] p-5">
+              {manifest ? (
+                <>
+                  <p>
+                    Bấm nút <span className="text-white font-medium">Cài đặt</span> ở trên để bắt đầu
+                    cài bản việt hóa vào thư mục game của bạn.
+                  </p>
+                  {game.installGuide && (
+                    <button
+                      onClick={() => setShowGuide(true)}
+                      className="flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm"
+                    >
+                      <BookOpen size={14} /> Xem hướng dẫn chi tiết
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className="text-zinc-500">Chưa có bản việt hóa nào.</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Installer Dialog */}
