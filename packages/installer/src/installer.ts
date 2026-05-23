@@ -6,7 +6,7 @@ import * as http from 'http';
 import type { IncomingMessage } from 'http';
 import type { InstallOptions, InstallReceipt, InstalledFile } from './types';
 
-const DOWNLOAD_CONCURRENCY = 4;
+const DOWNLOAD_CONCURRENCY = 2;
 const HTTP_KEEP_ALIVE_AGENT = new http.Agent({ keepAlive: true, maxSockets: DOWNLOAD_CONCURRENCY });
 const HTTPS_KEEP_ALIVE_AGENT = new https.Agent({ keepAlive: true, maxSockets: DOWNLOAD_CONCURRENCY });
 
@@ -128,8 +128,25 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
   const totalFiles = manifest.files.length;
   const totalBytes = manifest.totalSize;
   let bytesDownloaded = 0;
+  let lastProgressEmitAt = 0;
+  let lastProgressPercent = -1;
   const getPercent = (): number =>
     totalBytes > 0 ? Math.min(100, Math.round((bytesDownloaded / totalBytes) * 100)) : 0;
+
+  const emitProgress = (progress: Parameters<NonNullable<InstallOptions['onProgress']>>[0], force = false): void => {
+    if (!onProgress) return;
+
+    const now = Date.now();
+    if (!force && progress.phase === 'downloading') {
+      if (now - lastProgressEmitAt < 120 && progress.percent === lastProgressPercent) {
+        return;
+      }
+      lastProgressEmitAt = now;
+      lastProgressPercent = progress.percent;
+    }
+
+    onProgress(progress);
+  };
 
   const resolvedGamePath = path.resolve(gamePath);
 
@@ -146,7 +163,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       const cachePath = path.join(cacheDir, manifest.patchVersionId, file.relativePath);
       const current = index + 1;
 
-      onProgress?.({
+      emitProgress({
         phase: 'downloading',
         current,
         total: totalFiles,
@@ -154,11 +171,11 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
         bytesDownloaded,
         totalBytes,
         percent: getPercent(),
-      });
+      }, true);
 
       const downloadedHash = await downloadFile(file.url, cachePath, (bytes) => {
         bytesDownloaded += bytes;
-        onProgress?.({
+        emitProgress({
           phase: 'downloading',
           current,
           total: totalFiles,
@@ -187,7 +204,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       );
     }
 
-    onProgress?.({
+    emitProgress({
       phase: 'verifying',
       current,
       total: totalFiles,
@@ -195,7 +212,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       bytesDownloaded,
       totalBytes,
       percent: getPercent(),
-    });
+    }, true);
   }
 
   // ── Phase 3: Backup existing files ──────────────────────────────────────
@@ -210,7 +227,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
         fs.copyFileSync(targetPath, backupPath);
       }
 
-      onProgress?.({
+      emitProgress({
         phase: 'backing_up',
         current: i + 1,
         total: totalFiles,
@@ -218,7 +235,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
         bytesDownloaded,
         totalBytes,
         percent: getPercent(),
-      });
+      }, true);
     }
   }
 
@@ -245,7 +262,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       installedPath: targetPath,
     });
 
-    onProgress?.({
+    emitProgress({
       phase: 'installing',
       current: i + 1,
       total: totalFiles,
@@ -253,10 +270,10 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
       bytesDownloaded,
       totalBytes,
       percent: getPercent(),
-    });
+    }, true);
   }
 
-  onProgress?.({
+  emitProgress({
     phase: 'done',
     current: totalFiles,
     total: totalFiles,
@@ -264,7 +281,7 @@ export async function installPatch(options: InstallOptions): Promise<InstallRece
     bytesDownloaded,
     totalBytes,
     percent: 100,
-  });
+  }, true);
 
   return {
     gameId: manifest.gameId,
