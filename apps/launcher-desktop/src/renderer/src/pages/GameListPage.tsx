@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import type { Game } from '@gamehub/shared';
 
 type PatchFilter = 'all' | 'available' | 'none';
@@ -51,18 +51,31 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
     return a.title.localeCompare(b.title, 'vi');
   });
 
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
+  const logoSrc = './Charles24-05.png';
+
   return (
     <div className="h-full flex flex-col bg-[#0a0a0a]">
       {/* Header */}
       <div className="border-b border-[#1e1e1e]">
         <div className="max-w-[1480px] mx-auto w-full px-5 lg:px-8 py-5">
           <div className="flex items-center gap-4 mb-5">
-          <img
-            src="/Charles24-05.png"
-            alt="Charles24"
-            className="h-14 w-14 rounded-lg object-contain shrink-0"
-            draggable={false}
-          />
+            <button
+              type="button"
+              onClick={handleRefresh}
+              title="Làm mới danh sách"
+              className="h-14 w-14 rounded-lg border border-[#2a2a2a] bg-[#111] hover:bg-[#181818] flex items-center justify-center transition-colors shrink-0"
+            >
+              <img
+                src={logoSrc}
+                alt="Charles24"
+                className="h-10 w-10 rounded-md object-contain"
+                draggable={false}
+              />
+            </button>
           <div className="min-w-0">
             <h1 className="text-xl lg:text-2xl font-bold leading-none text-white">Charles24 Việt Hóa</h1>
             <p className="text-[11px] text-zinc-500 mt-2 uppercase tracking-[0.28em]">Games Library</p>
@@ -138,13 +151,8 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
                     className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <img
-                      src="/Charles24-05.png"
-                      alt="Charles24"
-                      className="h-10 w-10 opacity-40 object-contain"
-                      draggable={false}
-                    />
+                  <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                    <RefreshCw size={20} className="opacity-50" />
                   </div>
                 )}
               </div>

@@ -46,13 +46,17 @@ export default function LauncherReleaseModal({
     try {
       setStep('upload');
 
+      const normalizedMinSupportedVersion = form.minSupportedVersion.trim();
+
       // Create launcher release in draft state
       const release = await api
         .post('/admin/launcher/releases', {
           version: form.version,
           platform: form.platform,
           releaseNotes: form.releaseNotes,
-          minSupportedVersion: form.minSupportedVersion,
+          ...(normalizedMinSupportedVersion
+            ? { minSupportedVersion: normalizedMinSupportedVersion }
+            : {}),
         })
         .then((r) => r.data);
 
@@ -68,7 +72,10 @@ export default function LauncherReleaseModal({
 
       // Upload files
       const urlsByName = new Map<string, string>(
-        presignedUrls.map((u: { filename: string; url: string }) => [u.filename, u.url]),
+        presignedUrls.map((u: { filename: string; uploadUrl?: string; url?: string }) => [
+          u.filename,
+          u.uploadUrl ?? u.url ?? '',
+        ]),
       );
 
       await uploadFiles(

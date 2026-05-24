@@ -8,6 +8,7 @@ dist/
 build/
 .next/
 out/
+*.tsbuildinfo
 
 # Environment files
 .env
@@ -35,3 +36,4 @@ coverage/
 
 # Electron
 release/
+apps/launcher-desktop/dist-*/

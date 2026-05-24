@@ -1,10 +1,10 @@
 appId: com.gamehub.launcher
-productName: GameHub
+productName: Charles24_Launcher
 copyright: Copyright © 2024
 
 directories:
   output: dist
-  buildResources: resources
+  buildResources: ../../public
 
 files:
   - out/**/*
@@ -17,12 +17,17 @@ win:
       arch:
         - x64
   certificateFile: null
-  artifactName: GameHub-Setup-${version}.exe
+  icon: logo.ico
+  executableName: Charles24_Launcher
+  artifactName: Charles24_Launcher.exe
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
+  installerIcon: logo.ico
+  uninstallerIcon: logo.ico
+  installerHeaderIcon: logo.ico
 
 mac:
   target:

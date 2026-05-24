@@ -22,6 +22,39 @@ interface ElectronAPI {
 
 const EA = (window as unknown as { electronAPI: ElectronAPI }).electronAPI;
 
+function getYouTubeEmbedUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, '');
+
+    if (host === 'youtu.be') {
+      const id = parsed.pathname.split('/').filter(Boolean)[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+    }
+
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      if (parsed.pathname === '/watch') {
+        const id = parsed.searchParams.get('v');
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+      }
+
+      if (parsed.pathname.startsWith('/embed/')) {
+        const id = parsed.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+      }
+
+      if (parsed.pathname.startsWith('/shorts/')) {
+        const id = parsed.pathname.split('/').filter(Boolean)[1];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export default function GameDetailPage({ apiBase }: { apiBase: string }) {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -61,6 +94,8 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
 
   const hasUpdate = manifest && installedVersion !== manifest.version;
   const screenshots = game.screenshots ?? [];
+  const trailerEmbedUrl = game.youtubeDemoUrl ? getYouTubeEmbedUrl(game.youtubeDemoUrl) : null;
+  const hasCredits = hasGameCredits(game);
 
   return (
     <div className="h-full flex flex-col bg-[#0a0a0a] overflow-y-auto">
@@ -103,8 +138,13 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px] gap-5 xl:gap-8 items-start">
           {/* Left: screenshots */}
           <div className="min-w-0">
-            {screenshots.length > 0 ? (
-              <ScreenshotCarousel screenshots={screenshots} />
+            {screenshots.length > 0 || trailerEmbedUrl ? (
+              <ScreenshotCarousel
+                screenshots={screenshots}
+                trailerEmbedUrl={trailerEmbedUrl}
+                trailerSourceUrl={game.youtubeDemoUrl ?? null}
+                gameTitle={game.title}
+              />
             ) : game.bannerImage ? (
               <div className="rounded-2xl overflow-hidden bg-black border border-zinc-800/80 max-w-[1040px] mx-auto xl:mx-0" style={{ aspectRatio: '16/9' }}>
                 <img src={game.bannerImage.url} alt="" className="w-full h-full object-contain" />
@@ -183,69 +223,75 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
 
       {/* ── Content ── */}
       <div className="max-w-[1480px] mx-auto w-full px-4 lg:px-8 pb-8">
-        {/* Title */}
-        <div className="max-w-[1040px]">
-          <h1 className="text-2xl lg:text-3xl font-bold leading-tight text-white mb-3">{game.title}</h1>
+        <div className={`grid gap-6 ${hasCredits ? 'xl:grid-cols-[minmax(0,1fr)_320px]' : 'grid-cols-1'}`}>
+          <div className="min-w-0 max-w-[1040px]">
+            <h1 className="text-2xl lg:text-3xl font-bold leading-tight text-white mb-3">{game.title}</h1>
 
-          {/* Tabs */}
-          <div className="flex gap-1 border-b border-zinc-800 mb-5 overflow-x-auto">
-            {(['info', 'install'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab
-                    ? 'border-red-500 text-white'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {tab === 'info' ? 'Thông tin game' : 'Cài đặt'}
-              </button>
-            ))}
+            {/* Tabs */}
+            <div className="flex gap-1 border-b border-zinc-800 mb-5 overflow-x-auto">
+              {(['info', 'install'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === tab
+                      ? 'border-red-500 text-white'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  {tab === 'info' ? 'Thông tin game' : 'Cài đặt'}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'info' && (
+              <div className="space-y-5">
+                {game.description && (
+                  <p className="text-sm lg:text-[15px] text-zinc-300 leading-7 max-w-[92ch]">{game.description}</p>
+                )}
+                {game.youtubeDemoUrl && !trailerEmbedUrl && (
+                  <a
+                    href={game.youtubeDemoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
+                    </svg>
+                    Xem trailer trên YouTube
+                  </a>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'install' && (
+              <div className="space-y-4 text-sm text-zinc-400 rounded-2xl border border-zinc-800 bg-[#111] p-5">
+                {manifest ? (
+                  <>
+                    <p>
+                      Bấm nút <span className="text-white font-medium">Cài đặt</span> ở trên để bắt đầu
+                      cài bản việt hóa vào thư mục game của bạn.
+                    </p>
+                    {game.installGuide && (
+                      <button
+                        onClick={() => setShowGuide(true)}
+                        className="flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm"
+                      >
+                        <BookOpen size={14} /> Xem hướng dẫn chi tiết
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-zinc-500">Chưa có bản việt hóa nào.</p>
+                )}
+              </div>
+            )}
           </div>
 
-          {activeTab === 'info' && (
-            <div className="space-y-5">
-              {game.description && (
-                <p className="text-sm lg:text-[15px] text-zinc-300 leading-7 max-w-[92ch]">{game.description}</p>
-              )}
-              {game.youtubeDemoUrl && (
-                <a
-                  href={game.youtubeDemoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors"
-                >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.75 15.5V8.5l6.25 3.5-6.25 3.5z" />
-                  </svg>
-                  Xem trailer trên YouTube
-                </a>
-              )}
+          {hasCredits && (
+            <div className="xl:pt-[3.55rem]">
               <InfoTab game={game} />
-            </div>
-          )}
-
-          {activeTab === 'install' && (
-            <div className="space-y-4 text-sm text-zinc-400 rounded-2xl border border-zinc-800 bg-[#111] p-5">
-              {manifest ? (
-                <>
-                  <p>
-                    Bấm nút <span className="text-white font-medium">Cài đặt</span> ở trên để bắt đầu
-                    cài bản việt hóa vào thư mục game của bạn.
-                  </p>
-                  {game.installGuide && (
-                    <button
-                      onClick={() => setShowGuide(true)}
-                      className="flex items-center gap-1.5 text-red-400 hover:text-red-300 text-sm"
-                    >
-                      <BookOpen size={14} /> Xem hướng dẫn chi tiết
-                    </button>
-                  )}
-                </>
-              ) : (
-                <p className="text-zinc-500">Chưa có bản việt hóa nào.</p>
-              )}
             </div>
           )}
         </div>
@@ -294,19 +340,17 @@ export default function GameDetailPage({ apiBase }: { apiBase: string }) {
 
 function InfoTab({ game }: { game: Game }) {
   const credits = game.credits;
-  const hasCredits =
-    credits &&
-    (
-      (credits.production?.length ?? 0) +
-      (credits.technical?.length ?? 0) +
-      (credits.translation?.length ?? 0) +
-      (credits.testing?.length ?? 0)
-    ) > 0;
+  const hasCredits = hasGameCredits(game);
 
   if (!hasCredits) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="rounded-2xl border border-zinc-800 bg-[#111] p-4 xl:sticky xl:top-20">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-white">Người thực hiện</h3>
+        <p className="text-xs text-zinc-500 mt-1">Thông tin đội ngũ thực hiện bản việt hóa</p>
+      </div>
+      <div className="grid grid-cols-1 gap-2">
       {credits.translation?.length > 0 && (
         <CreditsCard label="Dịch thuật" names={credits.translation} color="text-cyan-400" />
       )}
@@ -319,6 +363,7 @@ function InfoTab({ game }: { game: Game }) {
       {credits.testing?.length > 0 && (
         <CreditsCard label="Hỗ trợ / Test" names={credits.testing} color="text-purple-400" />
       )}
+      </div>
     </div>
   );
 }
@@ -333,14 +378,44 @@ function CreditsCard({ label, names, color }: { label: string; names: string[]; 
   );
 }
 
+function hasGameCredits(game: Game): boolean {
+  const credits = game.credits;
+  return Boolean(
+    credits &&
+      (
+        (credits.production?.length ?? 0) +
+        (credits.technical?.length ?? 0) +
+        (credits.translation?.length ?? 0) +
+        (credits.testing?.length ?? 0)
+      ) > 0,
+  );
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Screenshot Carousel with thumbnail strip
 // ────────────────────────────────────────────────────────────────────────────
 
-function ScreenshotCarousel({ screenshots }: { screenshots: Array<{ key: string; url: string }> }) {
+function ScreenshotCarousel({
+  screenshots,
+  trailerEmbedUrl,
+  trailerSourceUrl,
+  gameTitle,
+}: {
+  screenshots: Array<{ key: string; url: string }>;
+  trailerEmbedUrl?: string | null;
+  trailerSourceUrl?: string | null;
+  gameTitle: string;
+}) {
   const [current, setCurrent] = useState(0);
   const thumbRef = useRef<HTMLDivElement>(null);
-  const total = screenshots.length;
+  const mediaItems: Array<
+    | { type: 'image'; key: string; url: string }
+    | { type: 'trailer'; key: 'trailer'; embedUrl: string }
+  > = [
+    ...screenshots.map((s) => ({ type: 'image' as const, key: s.key, url: s.url })),
+    ...(trailerEmbedUrl ? [{ type: 'trailer' as const, key: 'trailer' as const, embedUrl: trailerEmbedUrl }] : []),
+  ];
+  const total = mediaItems.length;
 
   const prev = () => setCurrent((c) => (c - 1 + total) % total);
   const next = () => setCurrent((c) => (c + 1) % total);
@@ -351,16 +426,31 @@ function ScreenshotCarousel({ screenshots }: { screenshots: Array<{ key: string;
     el?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   }, [current]);
 
+  const activeItem = mediaItems[current];
+
   return (
     <div className="flex flex-col gap-1.5">
       {/* Main image */}
       <div className="relative rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
-        <img
-          key={screenshots[current].url}
-          src={screenshots[current].url}
-          alt={`screenshot ${current + 1}`}
-          className="w-full h-full object-contain"
-        />
+        {activeItem.type === 'image' ? (
+          <img
+            key={activeItem.url}
+            src={activeItem.url}
+            alt={`screenshot ${current + 1}`}
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <div className="w-full h-full bg-black">
+            <iframe
+              src={activeItem.embedUrl}
+              title={`${gameTitle} trailer`}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        )}
         {total > 1 && (
           <>
             <button
@@ -388,18 +478,41 @@ function ScreenshotCarousel({ screenshots }: { screenshots: Array<{ key: string;
       {total > 1 && (
         <div ref={thumbRef} className="flex gap-1.5 overflow-x-auto pb-0.5"
              style={{ scrollbarWidth: 'none' }}>
-          {screenshots.map((s, i) => (
+          {mediaItems.map((item, i) => (
             <button
-              key={s.key}
+              key={item.key}
               onClick={() => setCurrent(i)}
               className={`shrink-0 rounded-md overflow-hidden border-2 transition-all ${
                 i === current ? 'border-red-500 opacity-100' : 'border-transparent opacity-50 hover:opacity-80'
               }`}
               style={{ width: 72, aspectRatio: '16/9' }}
             >
-              <img src={s.url} alt="" className="w-full h-full object-contain bg-black" />
+              {item.type === 'image' ? (
+                <img src={item.url} alt="" className="w-full h-full object-contain bg-black" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#1a1a1a] to-[#0b0b0b] flex flex-col items-center justify-center gap-1 text-white">
+                  <div className="w-7 h-7 rounded-full bg-red-600/90 flex items-center justify-center">
+                    <Play size={12} fill="currentColor" className="translate-x-[1px]" />
+                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-200">Trailer</span>
+                </div>
+              )}
             </button>
           ))}
+        </div>
+      )}
+
+      {activeItem.type === 'trailer' && trailerSourceUrl && (
+        <div className="flex justify-end pt-1">
+          <a
+            href={trailerSourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-xs text-red-400 hover:text-red-300 transition-colors"
+          >
+            <Play size={12} fill="currentColor" />
+            Mở trailer trên YouTube
+          </a>
         </div>
       )}
     </div>

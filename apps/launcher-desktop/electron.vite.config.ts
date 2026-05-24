@@ -16,6 +16,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
   },
   renderer: {
+    publicDir: path.resolve(__dirname, '../../public'),
     resolve: {
       alias: {
         '@gamehub/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),

@@ -62,6 +62,10 @@ export default function App() {
           </HashRouter>
         )}
       </div>
+
+      <footer className="h-8 shrink-0 border-t border-[#1e1e1e] bg-[#0d0d0d] px-4 flex items-center justify-center text-[11px] text-zinc-500">
+        Code and design by Charles24
+      </footer>
     </div>
   );
 }
