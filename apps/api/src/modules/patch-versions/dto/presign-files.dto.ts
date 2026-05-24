@@ -6,7 +6,7 @@ export class PresignFileItemDto {
   relativePath!: string;
 
   @IsNumber()
-  @Min(1)
+  @Min(0)
   size!: number;
 
   @IsString()
