@@ -67,12 +67,12 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
               type="button"
               onClick={handleRefresh}
               title="Làm mới danh sách"
-              className="h-14 w-14 rounded-lg border border-[#2a2a2a] bg-[#111] hover:bg-[#181818] flex items-center justify-center transition-colors shrink-0"
+              className="shrink-0 p-0 border-0 bg-transparent hover:opacity-90 transition-opacity"
             >
               <img
                 src={logoSrc}
                 alt="Charles24"
-                className="h-10 w-10 rounded-md object-contain"
+                className="h-26 w-36 lg:h-30 lg:w-30 object-contain"
                 draggable={false}
               />
             </button>
