@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Search } from 'lucide-react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import type { Game } from '@gamehub/shared';
 
 type PatchFilter = 'all' | 'available' | 'none';
+type SortMode = 'name_asc' | 'name_desc' | 'patch_first' | 'patch_last';
 
 export default function GameListPage({ apiBase }: { apiBase: string }) {
   const navigate = useNavigate();
   const [games, setGames] = useState<Game[]>([]);
   const [search, setSearch] = useState('');
   const [patchFilter, setPatchFilter] = useState<PatchFilter>('all');
+  const [sortMode, setSortMode] = useState<SortMode>('name_asc');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +30,25 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
     if (patchFilter === 'available') return matchesSearch && hasPatch;
     if (patchFilter === 'none') return matchesSearch && !hasPatch;
     return matchesSearch;
+  });
+
+  const filteredAndSorted = [...filtered].sort((a, b) => {
+    if (sortMode === 'name_asc') {
+      return a.title.localeCompare(b.title, 'vi');
+    }
+    if (sortMode === 'name_desc') {
+      return b.title.localeCompare(a.title, 'vi');
+    }
+
+    const aHasPatch = Boolean(a.latestPatchVersionId);
+    const bHasPatch = Boolean(b.latestPatchVersionId);
+    if (sortMode === 'patch_first') {
+      if (aHasPatch !== bHasPatch) return aHasPatch ? -1 : 1;
+      return a.title.localeCompare(b.title, 'vi');
+    }
+
+    if (aHasPatch !== bHasPatch) return aHasPatch ? 1 : -1;
+    return a.title.localeCompare(b.title, 'vi');
   });
 
   return (
@@ -61,28 +82,27 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: 'all', label: 'Tất cả' },
-                { key: 'available', label: 'Có patch' },
-                { key: 'none', label: 'Chưa có patch' },
-              ].map((item) => {
-                const active = patchFilter === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setPatchFilter(item.key as PatchFilter)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
-                      active
-                        ? 'bg-red-600 border-red-500 text-white'
-                        : 'bg-[#111] border-[#2a2a2a] text-zinc-400 hover:text-white hover:border-zinc-600'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
+            <div className="flex items-center gap-2 p-1.5 rounded-xl border border-[#2a2a2a] bg-[#111]">
+              <SlidersHorizontal size={14} className="text-zinc-500 ml-1" />
+              <select
+                value={patchFilter}
+                onChange={(e) => setPatchFilter(e.target.value as PatchFilter)}
+                className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500/50"
+              >
+                <option value="all">Tất cả game</option>
+                <option value="available">Có patch</option>
+                <option value="none">Chưa có patch</option>
+              </select>
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="bg-[#0d0d0d] border border-[#2a2a2a] rounded-md px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-red-500/50"
+              >
+                <option value="name_asc">Tên: A → Z</option>
+                <option value="name_desc">Tên: Z → A</option>
+                <option value="patch_first">Ưu tiên game có patch</option>
+                <option value="patch_last">Ưu tiên game chưa có patch</option>
+              </select>
             </div>
           </div>
         </div>
@@ -93,16 +113,16 @@ export default function GameListPage({ apiBase }: { apiBase: string }) {
         <div className="max-w-[1480px] mx-auto w-full px-5 lg:px-8 py-5 lg:py-6">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-zinc-500">
-              {loading ? 'Đang tải game...' : `${filtered.length} game`}
+              {loading ? 'Đang tải game...' : `${filteredAndSorted.length} game`}
             </p>
           </div>
-          {!loading && filtered.length === 0 && (
+          {!loading && filteredAndSorted.length === 0 && (
             <div className="rounded-2xl border border-[#1f1f1f] bg-[#101010] px-5 py-8 text-zinc-500 text-sm">
               Không tìm thấy game phù hợp với bộ lọc hiện tại.
             </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 xl:gap-5">
-          {filtered.map((game) => (
+          {filteredAndSorted.map((game) => (
             <button
               key={game._id}
               onClick={() => navigate(`/games/${game.slug}`)}
