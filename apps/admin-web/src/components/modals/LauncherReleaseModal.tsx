@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useR2Upload } from '../../lib/useR2Upload';
 import { computeFileSHA256 } from '../../lib/crypto';
 import { api } from '../../lib/api';
+import { getAdminToken } from '../../lib/adminToken';
 import { X, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface LauncherReleaseModalProps {
@@ -39,8 +40,8 @@ export default function LauncherReleaseModal({
     e.preventDefault();
     setError(null);
 
-    const token = localStorage.getItem('adminToken')?.trim();
-    if (!token || token === 'undefined' || token === 'null') {
+    const token = getAdminToken();
+    if (!token) {
       setError('Phiên đăng nhập admin đã hết hạn. Vui lòng đăng nhập lại.');
       window.location.href = '/login';
       return;

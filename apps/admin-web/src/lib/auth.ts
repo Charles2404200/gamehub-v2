@@ -1,4 +1,5 @@
 import { api } from './api';
+import { clearAdminToken, getAdminToken, setAdminToken } from './adminToken';
 
 export interface LoginCredentials {
   username: string;
@@ -7,14 +8,14 @@ export interface LoginCredentials {
 
 export async function login(credentials: LoginCredentials): Promise<void> {
   const { data } = await api.post<{ token: string }>('/admin/login', credentials);
-  localStorage.setItem('adminToken', data.token);
+  setAdminToken(data.token);
 }
 
 export function logout(): void {
-  localStorage.removeItem('adminToken');
+  clearAdminToken();
   window.location.href = '/login';
 }
 
 export function isAuthenticated(): boolean {
-  return Boolean(localStorage.getItem('adminToken'));
+  return Boolean(getAdminToken());
 }
