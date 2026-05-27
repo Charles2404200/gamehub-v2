@@ -49,6 +49,17 @@ export class AdminAuthGuard implements CanActivate {
     if (auth?.startsWith('Bearer ')) {
       return auth.slice(7);
     }
+
+    const fallbackHeader = request.headers['x-admin-token'];
+    if (typeof fallbackHeader === 'string' && fallbackHeader.trim()) {
+      return fallbackHeader.trim();
+    }
+
+    if (Array.isArray(fallbackHeader)) {
+      const first = fallbackHeader.find((v) => typeof v === 'string' && v.trim());
+      if (first) return first.trim();
+    }
+
     return undefined;
   }
 }

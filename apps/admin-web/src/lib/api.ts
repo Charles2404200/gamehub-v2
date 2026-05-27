@@ -12,6 +12,7 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
+    config.headers['x-admin-token'] = token;
   } else {
     clearAdminToken();
   }
