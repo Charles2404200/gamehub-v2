@@ -5,11 +5,23 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+function getNormalizedAdminToken(): string | null {
+  const raw = localStorage.getItem('adminToken');
+  if (!raw) return null;
+
+  const token = raw.replace(/^"(.+)"$/, '$1').trim();
+  if (!token || token === 'undefined' || token === 'null') return null;
+  return token;
+}
+
 // Attach admin token to every request automatically
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken');
+  const token = getNormalizedAdminToken();
   if (token) {
+    config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    localStorage.removeItem('adminToken');
   }
   return config;
 });

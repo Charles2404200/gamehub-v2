@@ -1,4 +1,5 @@
 import { useState, useRef, FormEvent } from 'react';
+import axios from 'axios';
 import { useR2Upload } from '../../lib/useR2Upload';
 import { computeFileSHA256 } from '../../lib/crypto';
 import { api } from '../../lib/api';
@@ -37,6 +38,13 @@ export default function LauncherReleaseModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const token = localStorage.getItem('adminToken')?.trim();
+    if (!token || token === 'undefined' || token === 'null') {
+      setError('Phiên đăng nhập admin đã hết hạn. Vui lòng đăng nhập lại.');
+      window.location.href = '/login';
+      return;
+    }
 
     if (!files.length) {
       setError('Please select at least one artifact file');
@@ -103,7 +111,13 @@ export default function LauncherReleaseModal({
       }, 1500);
     } catch (err) {
       console.error('Upload failed:', err);
-      setError(err instanceof Error ? err.message : 'Upload failed');
+
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        setError('Phiên đăng nhập admin đã hết hạn. Vui lòng đăng nhập lại.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Upload failed');
+      }
+
       setStep('error');
     }
   }
