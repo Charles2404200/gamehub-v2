@@ -60,6 +60,28 @@ export class AdminAuthGuard implements CanActivate {
       if (first) return first.trim();
     }
 
+    const cookieToken = this.extractCookieToken(request.headers.cookie, 'admin_session');
+    if (cookieToken) return cookieToken;
+
+    return undefined;
+  }
+
+  private extractCookieToken(cookieHeader: string | undefined, key: string): string | undefined {
+    if (!cookieHeader) return undefined;
+
+    const parts = cookieHeader.split(';');
+    for (const part of parts) {
+      const [rawName, ...rest] = part.trim().split('=');
+      if (rawName !== key) continue;
+      const rawValue = rest.join('=').trim();
+      if (!rawValue) return undefined;
+      try {
+        return decodeURIComponent(rawValue);
+      } catch {
+        return rawValue;
+      }
+    }
+
     return undefined;
   }
 }
