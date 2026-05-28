@@ -46,6 +46,7 @@ function createWindow(): void {
     }
   });
   ipcMain.on('window:close', () => mainWindow?.close());
+  ipcMain.handle('app:get-version', () => app.getVersion());
 }
 
 app.whenReady().then(() => {

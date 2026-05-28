@@ -1,9 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, Zap, AlertCircle } from 'lucide-react';
 
-const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.0.1';
-
-export default function SettingsPage() {
+export default function SettingsPage({ appVersion }: { appVersion: string }) {
   const navigate = useNavigate();
 
   return (
@@ -27,7 +25,7 @@ export default function SettingsPage() {
             <Package size={18} className="text-zinc-500 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-white">Launcher Version</p>
-              <p className="text-xs text-zinc-400 mt-1">v{APP_VERSION}</p>
+              <p className="text-xs text-zinc-400 mt-1">v{appVersion}</p>
               <p className="text-xs text-zinc-500 mt-1">Check for updates in the app menu.</p>
             </div>
           </div>

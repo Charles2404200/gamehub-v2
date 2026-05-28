@@ -10,9 +10,6 @@ import type { LauncherConfig } from '@gamehub/shared';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
 
-// Electron app version — injected by electron-vite at build time
-const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.0.1';
-
 function compareVersions(a: string, b: string): number {
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
@@ -26,24 +23,44 @@ function compareVersions(a: string, b: string): number {
 export default function App() {
   const [config, setConfig] = useState<LauncherConfig | null>(null);
   const [needsUpdate, setNeedsUpdate] = useState(false);
+  const [appVersion, setAppVersion] = useState('0.0.1');
 
   useEffect(() => {
-    axios
-      .get<LauncherConfig>(`${API_BASE}/launcher/config`, {
-        params: { platform: 'win32' },
-      })
-      .then(({ data }) => {
+    let cancelled = false;
+    const electronAPI = (window as unknown as {
+      electronAPI?: { app?: { getVersion: () => Promise<string> } };
+    }).electronAPI;
+
+    void (async () => {
+      try {
+        const resolvedVersion =
+          (await electronAPI?.app?.getVersion?.()) || appVersion;
+
+        if (cancelled) return;
+
+        setAppVersion(resolvedVersion);
+
+        const { data } = await axios.get<LauncherConfig>(`${API_BASE}/launcher/config`, {
+          params: { platform: 'win32' },
+        });
+
+        if (cancelled) return;
+
         setConfig(data);
-        if (
-          data.forceUpdate &&
-          compareVersions(APP_VERSION, data.minSupportedVersion) < 0
-        ) {
-          setNeedsUpdate(true);
+        setNeedsUpdate(
+          data.forceUpdate && compareVersions(resolvedVersion, data.minSupportedVersion) < 0,
+        );
+      } catch {
+        if (!cancelled) {
+          // Offline mode — allow launcher to open but skip config check
+          setNeedsUpdate(false);
         }
-      })
-      .catch(() => {
-        // Offline mode — allow launcher to open but skip config check
-      });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -51,14 +68,14 @@ export default function App() {
       <TitleBar />
 
       <div className="flex-1 overflow-hidden relative">
-        {needsUpdate && <ForceUpdateModal />}
+        {needsUpdate && <ForceUpdateModal appVersion={appVersion} />}
 
         {!needsUpdate && (
           <HashRouter>
             <Routes>
               <Route path="/" element={<GameListPage apiBase={API_BASE} />} />
               <Route path="/games/:slug" element={<GameDetailPage apiBase={API_BASE} />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings" element={<SettingsPage appVersion={appVersion} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </HashRouter>

@@ -6,6 +6,10 @@ import type { PatchManifest } from '@gamehub/shared';
  * The renderer NEVER gets direct access to Node.js or Electron internals.
  */
 contextBridge.exposeInMainWorld('electronAPI', {
+  app: {
+    getVersion: () => ipcRenderer.invoke('app:get-version'),
+  },
+
   // Window controls
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

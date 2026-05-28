@@ -37,6 +37,10 @@ interface UpdaterCheckResult {
   } | null;
 }
 
+interface ForceUpdateModalProps {
+  appVersion: string;
+}
+
 function normalizeUpdaterError(
   payload: unknown,
   source: string,
@@ -109,13 +113,12 @@ const getAPI = () =>
   onError: (cb: (payload: unknown) => void) => void;
 } } }).electronAPI?.updater;
 
-export default function ForceUpdateModal() {
+export default function ForceUpdateModal({ appVersion }: ForceUpdateModalProps) {
   const [phase, setPhase] = useState<UpdatePhase>('idle');
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [debugInfo, setDebugInfo] = useState<UpdaterDebugInfo | null>(null);
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
-  const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.0.1';
   const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
 
   useEffect(() => {
@@ -132,12 +135,12 @@ export default function ForceUpdateModal() {
       const version = result?.version ?? 'unknown';
       setLatestVersion(version);
       setPhase('error');
-      setErrorMsg(`No downloadable update found. Current: ${APP_VERSION}, latest: ${version}`);
+      setErrorMsg(`No downloadable update found. Current: ${appVersion}, latest: ${version}`);
       setDebugInfo({
         source: 'updater:event',
         action: 'not-available',
         at: new Date().toISOString(),
-        message: `No downloadable update found. Current: ${APP_VERSION}, latest: ${version}`,
+        message: `No downloadable update found. Current: ${appVersion}, latest: ${version}`,
         raw: JSON.stringify(info, null, 2),
       });
     });
@@ -169,7 +172,7 @@ export default function ForceUpdateModal() {
 
       if (!result.isUpdateAvailable) {
         throw new Error(
-          `No downloadable update found. Current: ${APP_VERSION}, latest: ${version ?? 'unknown'}`,
+          `No downloadable update found. Current: ${appVersion}, latest: ${version ?? 'unknown'}`,
         );
       }
 
@@ -244,7 +247,7 @@ export default function ForceUpdateModal() {
                   name: debugInfo.name,
                   at: debugInfo.at,
                   phase,
-                  appVersion: APP_VERSION,
+                  appVersion,
                   latestVersion,
                   apiBase: API_BASE,
                   stack: debugInfo.stack,
