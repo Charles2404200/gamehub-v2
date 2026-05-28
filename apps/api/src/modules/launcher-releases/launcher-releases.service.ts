@@ -71,13 +71,30 @@ export class LauncherReleasesService {
   ): Promise<Array<{ filename: string; uploadUrl: string; r2Key: string }>> {
     const release = await this.findById(id);
 
-    return Promise.all(
+    const presignedArtifacts = await Promise.all(
       artifacts.map(async (a) => {
         const r2Key = `launcher-updates/${release.platform}/${a.filename}`;
         const uploadUrl = await this.r2Service.presignPut(r2Key, a.contentType, 7200);
         return { filename: a.filename, uploadUrl, r2Key };
       }),
     );
+
+    release.artifactKeys = Array.from(
+      new Set([...(release.artifactKeys ?? []), ...presignedArtifacts.map((a) => a.r2Key)]),
+    );
+    await release.save();
+
+    return presignedArtifacts;
+  }
+
+  async remove(id: string): Promise<void> {
+    const release = await this.findById(id);
+
+    if (release.artifactKeys?.length) {
+      await this.r2Service.deleteObjects(release.artifactKeys);
+    }
+
+    await release.deleteOne();
   }
 
   private async findById(id: string): Promise<LauncherReleaseDocument> {

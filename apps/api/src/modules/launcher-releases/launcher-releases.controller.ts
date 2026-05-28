@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard';
 import { LauncherReleasesService } from './launcher-releases.service';
 import { CreateLauncherReleaseDto } from './dto/create-launcher-release.dto';
@@ -34,5 +34,11 @@ export class LauncherReleasesController {
   @Post(':id/presign-artifacts')
   presignArtifacts(@Param('id') id: string, @Body() dto: PresignArtifactsDto) {
     return this.service.presignArtifacts(id, dto.artifacts);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id') id: string) {
+    await this.service.remove(id);
   }
 }

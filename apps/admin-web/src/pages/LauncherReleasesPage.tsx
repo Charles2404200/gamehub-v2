@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Rocket, Plus } from 'lucide-react';
+import { Rocket, Plus, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 import type { LauncherRelease } from '@gamehub/shared';
 import LauncherReleaseModal from '../components/modals/LauncherReleaseModal';
@@ -19,6 +19,20 @@ export default function LauncherReleasesPage() {
       api.post(`/admin/launcher/releases/${id}/force-update`, { forceUpdate: true }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'launcher', 'releases'] }),
   });
+
+  const deleteReleaseMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/launcher/releases/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'launcher', 'releases'] }),
+  });
+
+  function handleDeleteRelease(release: LauncherRelease) {
+    const confirmed = window.confirm(
+      `Delete launcher release ${release.version} (${release.platform})? This cannot be undone.`,
+    );
+
+    if (!confirmed) return;
+    deleteReleaseMutation.mutate(release._id);
+  }
 
   return (
     <div className="space-y-5">
@@ -97,6 +111,16 @@ export default function LauncherReleasesPage() {
                         {r.forceUpdate ? 'Force Update Active' : 'Enable Force Update'}
                       </button>
                     )}
+                    <button
+                      className="btn-secondary text-xs px-3 py-1 text-red-300 hover:text-red-200"
+                      disabled={deleteReleaseMutation.isPending}
+                      onClick={() => handleDeleteRelease(r)}
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <Trash2 size={13} />
+                        Delete
+                      </span>
+                    </button>
                   </div>
                 </td>
               </tr>
