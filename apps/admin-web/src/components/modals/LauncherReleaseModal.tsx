@@ -1,7 +1,6 @@
 import { useState, useRef, FormEvent } from 'react';
 import axios from 'axios';
 import { useR2Upload } from '../../lib/useR2Upload';
-import { computeFileSHA256 } from '../../lib/crypto';
 import { api } from '../../lib/api';
 import { getAdminToken } from '../../lib/adminToken';
 import { X, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -55,19 +54,19 @@ export default function LauncherReleaseModal({
     try {
       setStep('upload');
 
+      const normalizedVersion = form.version.trim().replace(/^v/i, '');
       const normalizedMinSupportedVersion = form.minSupportedVersion.trim();
+      const normalizedReleaseNotes = form.releaseNotes.trim();
 
       // Create launcher release in draft state
       const release = await api
         .post('/admin/launcher/releases', {
-          version: form.version,
+          version: normalizedVersion,
           platform: form.platform,
-          releaseNotes: form.releaseNotes,
+          ...(normalizedReleaseNotes ? { releaseNotes: normalizedReleaseNotes } : {}),
           ...(normalizedMinSupportedVersion
             ? { minSupportedVersion: normalizedMinSupportedVersion }
             : {}),
-        }, {
-          params: { adminToken: token },
         })
         .then((r) => r.data);
 
@@ -78,8 +77,6 @@ export default function LauncherReleaseModal({
             filename: f.name,
             contentType: f.type || 'application/octet-stream',
           })),
-        }, {
-          params: { adminToken: token },
         })
         .then((r) => r.data);
 
@@ -107,11 +104,7 @@ export default function LauncherReleaseModal({
       );
 
       // Publish release
-      await api.post(
-        `/admin/launcher/releases/${release._id}/publish`,
-        {},
-        { params: { adminToken: token } },
-      );
+      await api.post(`/admin/launcher/releases/${release._id}/publish`);
 
       setStep('success');
       setTimeout(() => {
@@ -121,8 +114,19 @@ export default function LauncherReleaseModal({
     } catch (err) {
       console.error('Upload failed:', err);
 
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        setError('Phiên đăng nhập admin đã hết hạn. Vui lòng đăng nhập lại.');
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setError('Phiên đăng nhập admin đã hết hạn. Vui lòng đăng nhập lại.');
+        } else {
+          const responseMessage = err.response?.data?.message;
+          if (Array.isArray(responseMessage)) {
+            setError(responseMessage.join(' | '));
+          } else if (typeof responseMessage === 'string' && responseMessage.trim()) {
+            setError(responseMessage);
+          } else {
+            setError(err.message || 'Upload failed');
+          }
+        }
       } else {
         setError(err instanceof Error ? err.message : 'Upload failed');
       }
