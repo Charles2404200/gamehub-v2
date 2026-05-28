@@ -38,13 +38,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onChecking: (cb: () => void) => ipcRenderer.on('updater:checking', cb),
     onAvailable: (cb: (info: unknown) => void) =>
       ipcRenderer.on('updater:available', (_e, info) => cb(info)),
-    onNotAvailable: (cb: () => void) => ipcRenderer.on('updater:not-available', cb),
+    onNotAvailable: (cb: (info: unknown) => void) =>
+      ipcRenderer.on('updater:not-available', (_e, info) => cb(info)),
     onProgress: (cb: (progress: unknown) => void) =>
       ipcRenderer.on('updater:progress', (_e, p) => cb(p)),
     onDownloaded: (cb: (info: unknown) => void) =>
       ipcRenderer.on('updater:downloaded', (_e, info) => cb(info)),
-    onError: (cb: (msg: string) => void) =>
-      ipcRenderer.on('updater:error', (_e, msg) => cb(msg)),
+    onError: (cb: (payload: unknown) => void) =>
+      ipcRenderer.on('updater:error', (_e, payload) => cb(payload)),
   },
 
   // Install progress listener

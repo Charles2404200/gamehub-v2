@@ -27,6 +27,16 @@ interface UpdaterDebugInfo {
   raw?: string;
 }
 
+interface UpdaterCheckResult {
+  isUpdateAvailable: boolean;
+  hasDownloadPromise: boolean;
+  updateInfo: {
+    version?: string;
+    releaseDate?: string;
+    files?: Array<{ url?: string }>;
+  } | null;
+}
+
 function normalizeUpdaterError(
   payload: unknown,
   source: string,
@@ -93,6 +103,7 @@ const getAPI = () =>
   install: () => Promise<unknown>;
   onChecking: (cb: () => void) => void;
   onAvailable: (cb: (info: unknown) => void) => void;
+  onNotAvailable: (cb: (info: unknown) => void) => void;
   onProgress: (cb: (p: DownloadProgress) => void) => void;
   onDownloaded: (cb: (info: unknown) => void) => void;
   onError: (cb: (payload: unknown) => void) => void;
@@ -103,6 +114,7 @@ export default function ForceUpdateModal() {
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [debugInfo, setDebugInfo] = useState<UpdaterDebugInfo | null>(null);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.0.1';
   const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -110,7 +122,25 @@ export default function ForceUpdateModal() {
     const api = getAPI();
     if (!api) return;
     api.onChecking(() => setPhase('checking'));
-    api.onAvailable(() => setPhase('idle'));
+    api.onAvailable((info) => {
+      const result = info as { version?: string } | null;
+      setLatestVersion(result?.version ?? null);
+      setPhase('idle');
+    });
+    api.onNotAvailable((info) => {
+      const result = info as { version?: string } | null;
+      const version = result?.version ?? 'unknown';
+      setLatestVersion(version);
+      setPhase('error');
+      setErrorMsg(`No downloadable update found. Current: ${APP_VERSION}, latest: ${version}`);
+      setDebugInfo({
+        source: 'updater:event',
+        action: 'not-available',
+        at: new Date().toISOString(),
+        message: `No downloadable update found. Current: ${APP_VERSION}, latest: ${version}`,
+        raw: JSON.stringify(info, null, 2),
+      });
+    });
     api.onProgress((p) => {
       setPhase('downloading');
       setProgress(Math.round(p.percent));
@@ -129,7 +159,20 @@ export default function ForceUpdateModal() {
     setErrorMsg('');
     setDebugInfo(null);
     try {
-      await getAPI()?.check();
+      const result = (await getAPI()?.check()) as UpdaterCheckResult | null;
+      const version = result?.updateInfo?.version ?? null;
+      setLatestVersion(version);
+
+      if (!result) {
+        throw new Error('Updater check returned no result');
+      }
+
+      if (!result.isUpdateAvailable) {
+        throw new Error(
+          `No downloadable update found. Current: ${APP_VERSION}, latest: ${version ?? 'unknown'}`,
+        );
+      }
+
       setPhase('downloading');
       await getAPI()?.download();
     } catch (err) {
@@ -202,6 +245,7 @@ export default function ForceUpdateModal() {
                   at: debugInfo.at,
                   phase,
                   appVersion: APP_VERSION,
+                  latestVersion,
                   apiBase: API_BASE,
                   stack: debugInfo.stack,
                 }, null, 2)}</pre>

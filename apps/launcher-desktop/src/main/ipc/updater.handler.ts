@@ -1,5 +1,6 @@
 import { IpcMain, BrowserWindow } from 'electron';
 import type { AppUpdater } from 'electron-updater';
+import type { UpdateCheckResult, UpdateInfo } from 'electron-updater';
 
 interface SerializedUpdaterError {
   message: string;
@@ -32,6 +33,24 @@ function serializeUpdaterError(err: unknown): SerializedUpdaterError {
   return { message: String(err) };
 }
 
+function serializeUpdateInfo(updateInfo: UpdateInfo | null | undefined) {
+  if (!updateInfo) return null;
+  return {
+    version: updateInfo.version,
+    releaseDate: updateInfo.releaseDate,
+    files: updateInfo.files,
+  };
+}
+
+function serializeCheckResult(result: UpdateCheckResult | null) {
+  if (!result) return null;
+  return {
+    isUpdateAvailable: result.isUpdateAvailable,
+    updateInfo: serializeUpdateInfo(result.updateInfo),
+    hasDownloadPromise: Boolean(result.downloadPromise),
+  };
+}
+
 /**
  * Registers electron-updater event forwarding to the renderer.
  * The renderer listens for 'updater:*' events via preload IPC.
@@ -59,8 +78,10 @@ export function registerUpdaterHandlers(
   };
 
   autoUpdater.on('checking-for-update', () => send('updater:checking'));
-  autoUpdater.on('update-available', (info) => send('updater:available', info));
-  autoUpdater.on('update-not-available', () => send('updater:not-available'));
+  autoUpdater.on('update-available', (info) => send('updater:available', serializeUpdateInfo(info)));
+  autoUpdater.on('update-not-available', (info) =>
+    send('updater:not-available', serializeUpdateInfo(info)),
+  );
   autoUpdater.on('error', (err) => emitUpdaterError('updater:event', null, err));
   autoUpdater.on('download-progress', (progress) => send('updater:progress', progress));
   autoUpdater.on('update-downloaded', (info) => send('updater:downloaded', info));
@@ -68,7 +89,8 @@ export function registerUpdaterHandlers(
   // IPC handlers from renderer
   ipcMain.handle('updater:check', async () => {
     try {
-      return await autoUpdater.checkForUpdates();
+      const result = await autoUpdater.checkForUpdates();
+      return serializeCheckResult(result);
     } catch (err) {
       emitUpdaterError('updater:ipc', 'check', err);
       throw err;
