@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Download, RefreshCw } from 'lucide-react';
 
+interface ForceUpdateModalProps {
+  updateBaseUrl?: string;
+}
+
 type UpdatePhase =
   | 'idle'
   | 'checking'
@@ -28,10 +32,12 @@ const getAPI = () =>
   onError: (cb: (msg: string) => void) => void;
 } } }).electronAPI?.updater;
 
-export default function ForceUpdateModal() {
+export default function ForceUpdateModal({ updateBaseUrl }: ForceUpdateModalProps) {
   const [phase, setPhase] = useState<UpdatePhase>('idle');
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
+  const [manualDownloadUrl, setManualDownloadUrl] = useState<string | null>(null);
+  const isUpdaterUnavailable = errorMsg.toLowerCase().includes('updater is unavailable');
 
   useEffect(() => {
     const api = getAPI();
@@ -52,14 +58,26 @@ export default function ForceUpdateModal() {
   async function handleUpdate() {
     setPhase('checking');
     setErrorMsg('');
+    setManualDownloadUrl(null);
     try {
       await getAPI()?.check();
       setPhase('downloading');
       await getAPI()?.download();
     } catch (err) {
+      const message = String(err);
       setPhase('error');
-      setErrorMsg(String(err));
+      setErrorMsg(message);
+
+      if (message.toLowerCase().includes('updater is unavailable') && updateBaseUrl) {
+        const base = updateBaseUrl.replace(/\/$/, '');
+        setManualDownloadUrl(`${base}/Charles24_Launcher.exe`);
+      }
     }
+  }
+
+  function handleManualDownload() {
+    if (!manualDownloadUrl) return;
+    window.open(manualDownloadUrl, '_blank');
   }
 
   async function handleInstall() {
@@ -101,9 +119,20 @@ export default function ForceUpdateModal() {
 
         {/* Error */}
         {phase === 'error' && (
-          <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded px-3 py-2 mb-4 text-center">
-            {errorMsg || 'Update failed. Please try again.'}
-          </p>
+          <div className="mb-4 space-y-3">
+            <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded px-3 py-2 text-center">
+              {errorMsg || 'Update failed. Please try again.'}
+            </p>
+            {isUpdaterUnavailable && manualDownloadUrl && (
+              <button
+                onClick={handleManualDownload}
+                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Download size={16} />
+                Download Latest Installer
+              </button>
+            )}
+          </div>
         )}
 
         {/* Phase label */}

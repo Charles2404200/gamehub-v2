@@ -51,7 +51,7 @@ export default function App() {
       <TitleBar />
 
       <div className="flex-1 overflow-hidden relative">
-        {needsUpdate && <ForceUpdateModal />}
+        {needsUpdate && <ForceUpdateModal updateBaseUrl={config?.updateBaseUrl} />}
 
         {!needsUpdate && (
           <HashRouter>
