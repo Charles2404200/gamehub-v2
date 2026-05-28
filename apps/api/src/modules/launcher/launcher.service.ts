@@ -3,8 +3,18 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Game, GameDocument } from '../games/schemas/game.schema';
 import { PatchVersion, PatchVersionDocument } from '../patch-versions/schemas/patch-version.schema';
+import {
+  LauncherRelease,
+  LauncherReleaseDocument,
+} from '../launcher-releases/schemas/launcher-release.schema';
 import { ConfigService } from '@nestjs/config';
-import { GameStatus, PatchStatus, LauncherConfig } from '@gamehub/shared';
+import {
+  GameStatus,
+  PatchStatus,
+  LauncherConfig,
+  LauncherPlatform,
+  LauncherReleaseStatus,
+} from '@gamehub/shared';
 
 @Injectable()
 export class LauncherService {
@@ -12,15 +22,33 @@ export class LauncherService {
     @InjectModel(Game.name) private readonly gameModel: Model<GameDocument>,
     @InjectModel(PatchVersion.name)
     private readonly patchVersionModel: Model<PatchVersionDocument>,
+    @InjectModel(LauncherRelease.name)
+    private readonly launcherReleaseModel: Model<LauncherReleaseDocument>,
     private readonly configService: ConfigService,
   ) {}
 
-  getLauncherConfig(): LauncherConfig {
+  async getLauncherConfig(platform: LauncherPlatform = LauncherPlatform.WIN32): Promise<LauncherConfig> {
+    const latestPublishedRelease = await this.launcherReleaseModel
+      .findOne({
+        platform,
+        status: LauncherReleaseStatus.PUBLISHED,
+      })
+      .sort({ publishedAt: -1, createdAt: -1 })
+      .exec();
+
     return {
-      latestVersion: this.configService.get('LATEST_LAUNCHER_VERSION', '1.0.0'),
-      minSupportedVersion: this.configService.get('MIN_SUPPORTED_LAUNCHER_VERSION', '1.0.0'),
-      forceUpdate: this.configService.get('FORCE_UPDATE_ENABLED', 'false') === 'true',
-      updateBaseUrl: this.configService.getOrThrow('LAUNCHER_UPDATE_BASE_URL'),
+      latestVersion:
+        latestPublishedRelease?.version ??
+        this.configService.get('LATEST_LAUNCHER_VERSION', '1.0.0'),
+      minSupportedVersion:
+        latestPublishedRelease?.minSupportedVersion ??
+        this.configService.get('MIN_SUPPORTED_LAUNCHER_VERSION', '1.0.0'),
+      forceUpdate:
+        latestPublishedRelease?.forceUpdate ??
+        this.configService.get('FORCE_UPDATE_ENABLED', 'false') === 'true',
+      updateBaseUrl:
+        latestPublishedRelease?.updateBaseUrl ??
+        this.configService.getOrThrow('LAUNCHER_UPDATE_BASE_URL'),
     };
   }
 

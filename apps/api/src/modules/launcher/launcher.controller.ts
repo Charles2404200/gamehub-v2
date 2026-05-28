@@ -1,6 +1,7 @@
-import { Controller, Get, Param, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { LauncherService } from './launcher.service';
 import { PatchVersionsService } from '../patch-versions/patch-versions.service';
+import { LauncherPlatform } from '@gamehub/shared';
 
 /** All endpoints here are public — no auth required. */
 @Controller('launcher')
@@ -11,8 +12,10 @@ export class LauncherController {
   ) {}
 
   @Get('config')
-  getConfig() {
-    return this.launcherService.getLauncherConfig();
+  getConfig(
+    @Query('platform') platform?: LauncherPlatform,
+  ) {
+    return this.launcherService.getLauncherConfig(platform ?? LauncherPlatform.WIN32);
   }
 
   @Get('games')

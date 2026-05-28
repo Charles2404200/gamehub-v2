@@ -29,7 +29,9 @@ export default function App() {
 
   useEffect(() => {
     axios
-      .get<LauncherConfig>(`${API_BASE}/launcher/config`)
+      .get<LauncherConfig>(`${API_BASE}/launcher/config`, {
+        params: { platform: 'win32' },
+      })
       .then(({ data }) => {
         setConfig(data);
         if (
