@@ -46,8 +46,11 @@ export class AdminAuthGuard implements CanActivate {
 
   private extractBearerToken(request: Request): string | undefined {
     const auth = request.headers.authorization;
-    if (auth?.startsWith('Bearer ')) {
-      return auth.slice(7);
+    if (auth) {
+      const match = auth.match(/^Bearer\s+(.+)$/i);
+      if (match?.[1]) {
+        return match[1].trim();
+      }
     }
 
     const fallbackHeader = request.headers['x-admin-token'];
@@ -62,6 +65,22 @@ export class AdminAuthGuard implements CanActivate {
 
     const cookieToken = this.extractCookieToken(request.headers.cookie, 'admin_session');
     if (cookieToken) return cookieToken;
+
+    const queryToken = this.extractQueryToken(request.query?.adminToken);
+    if (queryToken) return queryToken;
+
+    return undefined;
+  }
+
+  private extractQueryToken(value: unknown): string | undefined {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+
+    if (Array.isArray(value)) {
+      const first = value.find((v) => typeof v === 'string' && v.trim());
+      if (typeof first === 'string') return first.trim();
+    }
 
     return undefined;
   }

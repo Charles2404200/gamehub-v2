@@ -66,6 +66,8 @@ export default function LauncherReleaseModal({
           ...(normalizedMinSupportedVersion
             ? { minSupportedVersion: normalizedMinSupportedVersion }
             : {}),
+        }, {
+          params: { adminToken: token },
         })
         .then((r) => r.data);
 
@@ -76,6 +78,8 @@ export default function LauncherReleaseModal({
             filename: f.name,
             contentType: f.type || 'application/octet-stream',
           })),
+        }, {
+          params: { adminToken: token },
         })
         .then((r) => r.data);
 
@@ -103,7 +107,11 @@ export default function LauncherReleaseModal({
       );
 
       // Publish release
-      await api.post(`/admin/launcher/releases/${release._id}/publish`);
+      await api.post(
+        `/admin/launcher/releases/${release._id}/publish`,
+        {},
+        { params: { adminToken: token } },
+      );
 
       setStep('success');
       setTimeout(() => {
