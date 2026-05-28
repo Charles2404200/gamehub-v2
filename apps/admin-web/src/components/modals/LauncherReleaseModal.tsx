@@ -218,7 +218,7 @@ export default function LauncherReleaseModal({
                     multiple
                     onChange={handleFileSelect}
                     className="hidden"
-                    accept=".exe,.dmg,.yml,.zip,.AppImage"
+                    accept=".exe,.dmg,.yml,.yaml,.blockmap,.zip,.AppImage"
                   />
                   <Upload size={20} className="mx-auto text-primary mb-2" />
                   <p className="text-text-secondary text-sm">

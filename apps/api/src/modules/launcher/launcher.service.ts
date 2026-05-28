@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Game, GameDocument } from '../games/schemas/game.schema';
@@ -15,6 +15,7 @@ import {
   LauncherPlatform,
   LauncherReleaseStatus,
 } from '@gamehub/shared';
+import { R2Service } from '../r2/r2.service';
 
 @Injectable()
 export class LauncherService {
@@ -25,6 +26,7 @@ export class LauncherService {
     @InjectModel(LauncherRelease.name)
     private readonly launcherReleaseModel: Model<LauncherReleaseDocument>,
     private readonly configService: ConfigService,
+    private readonly r2Service: R2Service,
   ) {}
 
   async getLauncherConfig(platform: LauncherPlatform = LauncherPlatform.WIN32): Promise<LauncherConfig> {
@@ -71,5 +73,19 @@ export class LauncherService {
       _id: game.latestPatchVersionId,
       status: PatchStatus.PUBLISHED,
     });
+  }
+
+  async getSignedLauncherUpdateUrl(platform: LauncherPlatform, fileName: string): Promise<string> {
+    if (!/^[A-Za-z0-9._-]+$/.test(fileName)) {
+      throw new BadRequestException('Invalid update file name');
+    }
+
+    const key = `launcher-updates/${platform}/${fileName}`;
+    const exists = await this.r2Service.objectExists(key);
+    if (!exists) {
+      throw new NotFoundException(`Update artifact not found: ${platform}/${fileName}`);
+    }
+
+    return this.r2Service.presignGet(key, 1800);
   }
 }

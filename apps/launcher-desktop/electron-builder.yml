@@ -6,10 +6,15 @@ directories:
   output: dist
   buildResources: ../../public
 
+asar: false
+
 files:
   - out/**/*
   - package.json
   - node_modules/**/*
+  - node_modules/.pnpm/**/*
+  - ../../node_modules/**/*
+  - ../../node_modules/.pnpm/**/*
 
 win:
   target:
@@ -41,4 +46,4 @@ linux:
 
 publish:
   - provider: generic
-    url: https://pub-a4652a07eb284b5295b7e710ff59a071.r2.dev/launcher-updates/
+    url: https://gamehubapi-production-1690.up.railway.app/launcher/updates/win32/

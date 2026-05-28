@@ -1,7 +1,8 @@
-import { Controller, Get, Param, Post, Body, HttpCode, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, HttpCode, HttpStatus, Query, Res } from '@nestjs/common';
 import { LauncherService } from './launcher.service';
 import { PatchVersionsService } from '../patch-versions/patch-versions.service';
 import { LauncherPlatform } from '@gamehub/shared';
+import type { Response } from 'express';
 
 /** All endpoints here are public — no auth required. */
 @Controller('launcher')
@@ -37,6 +38,16 @@ export class LauncherController {
   @HttpCode(HttpStatus.OK)
   getManifest(@Param('patchVersionId') id: string) {
     return this.patchVersionsService.getManifest(id);
+  }
+
+  @Get('updates/:platform/:fileName')
+  async getLauncherUpdateFile(
+    @Param('platform') platform: LauncherPlatform,
+    @Param('fileName') fileName: string,
+    @Res() res: Response,
+  ) {
+    const signedUrl = await this.launcherService.getSignedLauncherUpdateUrl(platform, fileName);
+    return res.redirect(signedUrl);
   }
 
   @Post('download-events')

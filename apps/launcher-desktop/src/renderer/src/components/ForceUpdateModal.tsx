@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, Download, RefreshCw } from 'lucide-react';
 
-interface ForceUpdateModalProps {
-  updateBaseUrl?: string;
-}
-
 type UpdatePhase =
   | 'idle'
   | 'checking'
@@ -20,6 +16,76 @@ interface DownloadProgress {
   transferred: number;
 }
 
+interface UpdaterDebugInfo {
+  source: string;
+  action: string | null;
+  at: string;
+  message: string;
+  name?: string;
+  code?: string;
+  stack?: string;
+  raw?: string;
+}
+
+function normalizeUpdaterError(
+  payload: unknown,
+  source: string,
+  action: string | null,
+): UpdaterDebugInfo {
+  const base = {
+    source,
+    action,
+    at: new Date().toISOString(),
+    message: 'Unknown updater error',
+  };
+
+  if (typeof payload === 'string') {
+    try {
+      const parsed = JSON.parse(payload) as Record<string, unknown>;
+      return {
+        source: typeof parsed.source === 'string' ? parsed.source : base.source,
+        action: typeof parsed.action === 'string' ? parsed.action : base.action,
+        at: typeof parsed.at === 'string' ? parsed.at : base.at,
+        message: typeof parsed.message === 'string' ? parsed.message : payload,
+        name: typeof parsed.name === 'string' ? parsed.name : undefined,
+        code: typeof parsed.code === 'string' ? parsed.code : undefined,
+        stack: typeof parsed.stack === 'string' ? parsed.stack : undefined,
+        raw: payload,
+      };
+    } catch {
+      return { ...base, message: payload, raw: payload };
+    }
+  }
+
+  if (payload instanceof Error) {
+    const withCode = payload as Error & { code?: string };
+    return {
+      ...base,
+      message: payload.message,
+      name: payload.name,
+      code: withCode.code,
+      stack: payload.stack,
+      raw: String(payload),
+    };
+  }
+
+  if (typeof payload === 'object' && payload !== null) {
+    const obj = payload as Record<string, unknown>;
+    return {
+      source: typeof obj.source === 'string' ? obj.source : base.source,
+      action: typeof obj.action === 'string' ? obj.action : base.action,
+      at: typeof obj.at === 'string' ? obj.at : base.at,
+      message: typeof obj.message === 'string' ? obj.message : String(payload),
+      name: typeof obj.name === 'string' ? obj.name : undefined,
+      code: typeof obj.code === 'string' ? obj.code : undefined,
+      stack: typeof obj.stack === 'string' ? obj.stack : undefined,
+      raw: JSON.stringify(obj, null, 2),
+    };
+  }
+
+  return { ...base, message: String(payload), raw: String(payload) };
+}
+
 const getAPI = () =>
   (window as unknown as { electronAPI: { updater: {
   check: () => Promise<unknown>;
@@ -29,15 +95,16 @@ const getAPI = () =>
   onAvailable: (cb: (info: unknown) => void) => void;
   onProgress: (cb: (p: DownloadProgress) => void) => void;
   onDownloaded: (cb: (info: unknown) => void) => void;
-  onError: (cb: (msg: string) => void) => void;
+  onError: (cb: (payload: unknown) => void) => void;
 } } }).electronAPI?.updater;
 
-export default function ForceUpdateModal({ updateBaseUrl }: ForceUpdateModalProps) {
+export default function ForceUpdateModal() {
   const [phase, setPhase] = useState<UpdatePhase>('idle');
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
-  const [manualDownloadUrl, setManualDownloadUrl] = useState<string | null>(null);
-  const isUpdaterUnavailable = errorMsg.toLowerCase().includes('updater is unavailable');
+  const [debugInfo, setDebugInfo] = useState<UpdaterDebugInfo | null>(null);
+  const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? '0.0.1';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
 
   useEffect(() => {
     const api = getAPI();
@@ -49,40 +116,40 @@ export default function ForceUpdateModal({ updateBaseUrl }: ForceUpdateModalProp
       setProgress(Math.round(p.percent));
     });
     api.onDownloaded(() => setPhase('ready'));
-    api.onError((msg) => {
+    api.onError((payload) => {
+      const info = normalizeUpdaterError(payload, 'updater:event', null);
       setPhase('error');
-      setErrorMsg(msg);
+      setErrorMsg(info.message);
+      setDebugInfo(info);
     });
   }, []);
 
   async function handleUpdate() {
     setPhase('checking');
     setErrorMsg('');
-    setManualDownloadUrl(null);
+    setDebugInfo(null);
     try {
       await getAPI()?.check();
       setPhase('downloading');
       await getAPI()?.download();
     } catch (err) {
-      const message = String(err);
+      const info = normalizeUpdaterError(err, 'renderer:catch', 'check/download');
       setPhase('error');
-      setErrorMsg(message);
-
-      if (message.toLowerCase().includes('updater is unavailable') && updateBaseUrl) {
-        const base = updateBaseUrl.replace(/\/$/, '');
-        setManualDownloadUrl(`${base}/Charles24_Launcher.exe`);
-      }
+      setErrorMsg(info.message);
+      setDebugInfo(info);
     }
-  }
-
-  function handleManualDownload() {
-    if (!manualDownloadUrl) return;
-    window.open(manualDownloadUrl, '_blank');
   }
 
   async function handleInstall() {
     setPhase('installing');
-    await getAPI()?.install();
+    try {
+      await getAPI()?.install();
+    } catch (err) {
+      const info = normalizeUpdaterError(err, 'renderer:catch', 'install');
+      setPhase('error');
+      setErrorMsg(info.message);
+      setDebugInfo(info);
+    }
   }
 
   return (
@@ -119,18 +186,26 @@ export default function ForceUpdateModal({ updateBaseUrl }: ForceUpdateModalProp
 
         {/* Error */}
         {phase === 'error' && (
-          <div className="mb-4 space-y-3">
+          <div className="mb-4 space-y-2">
             <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded px-3 py-2 text-center">
               {errorMsg || 'Update failed. Please try again.'}
             </p>
-            {isUpdaterUnavailable && manualDownloadUrl && (
-              <button
-                onClick={handleManualDownload}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <Download size={16} />
-                Download Latest Installer
-              </button>
+            {debugInfo && (
+              <div className="text-[10px] text-zinc-300 bg-zinc-900/90 border border-zinc-700 rounded px-3 py-2">
+                <p className="text-zinc-100 font-semibold mb-1">Updater Debug</p>
+                <pre className="whitespace-pre-wrap break-all leading-4">{JSON.stringify({
+                  source: debugInfo.source,
+                  action: debugInfo.action,
+                  message: debugInfo.message,
+                  code: debugInfo.code,
+                  name: debugInfo.name,
+                  at: debugInfo.at,
+                  phase,
+                  appVersion: APP_VERSION,
+                  apiBase: API_BASE,
+                  stack: debugInfo.stack,
+                }, null, 2)}</pre>
+              </div>
             )}
           </div>
         )}

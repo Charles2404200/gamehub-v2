@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import { join } from 'path';
-import type { AppUpdater } from 'electron-updater';
+import { autoUpdater } from 'electron-updater';
 import { registerFsHandlers } from './ipc/fs.handler';
 import { registerUpdaterHandlers } from './ipc/updater.handler';
 
@@ -53,33 +53,9 @@ app.whenReady().then(() => {
 
   registerFsHandlers(ipcMain);
 
-  // Load electron-updater lazily so missing optional deps don't crash main process startup.
-  // If updater fails to load, launcher still works (only auto-update features are disabled).
-  void (async () => {
-    let loadedUpdater: AppUpdater | null = null;
-    try {
-      const updaterModule = await import('electron-updater');
-      loadedUpdater = updaterModule.autoUpdater;
-    } catch (err) {
-      console.warn('[Updater] Disabled: failed to load electron-updater', err);
-    }
-
-    if (loadedUpdater && mainWindow) {
-      registerUpdaterHandlers(ipcMain, loadedUpdater, mainWindow);
-      return;
-    }
-
-    const updaterUnavailableError = 'Updater is unavailable in this build.';
-    ipcMain.handle('updater:check', async () => {
-      throw new Error(updaterUnavailableError);
-    });
-    ipcMain.handle('updater:download', async () => {
-      throw new Error(updaterUnavailableError);
-    });
-    ipcMain.handle('updater:install', async () => {
-      throw new Error(updaterUnavailableError);
-    });
-  })();
+  if (mainWindow) {
+    registerUpdaterHandlers(ipcMain, autoUpdater, mainWindow);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
