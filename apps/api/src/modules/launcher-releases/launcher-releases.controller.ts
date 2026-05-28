@@ -28,7 +28,7 @@ export class LauncherReleasesController {
 
   @Post(':id/force-update')
   setForceUpdate(@Param('id') id: string, @Body() dto: SetForceUpdateDto) {
-    return this.service.setForceUpdate(id, dto.forceUpdate);
+    return this.service.setForceUpdate(id, dto.forceUpdate ?? true);
   }
 
   @Post(':id/presign-artifacts')

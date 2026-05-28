@@ -15,7 +15,8 @@ export default function LauncherReleasesPage() {
   });
 
   const forceUpdateMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/admin/launcher/releases/${id}/force-update`),
+    mutationFn: (id: string) =>
+      api.post(`/admin/launcher/releases/${id}/force-update`, { forceUpdate: true }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'launcher', 'releases'] }),
   });
 
