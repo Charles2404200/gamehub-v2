@@ -51,6 +51,18 @@ export default function LauncherReleaseModal({
       return;
     }
 
+    const selectedNames = files.map((f) => f.name.toLowerCase());
+    if (form.platform === 'win32') {
+      const hasLatestYml = selectedNames.some((n) => n === 'latest.yml');
+      const hasExe = selectedNames.some((n) => n.endsWith('.exe'));
+      const hasBlockmap = selectedNames.some((n) => n.endsWith('.blockmap'));
+
+      if (!hasLatestYml || !hasExe || !hasBlockmap) {
+        setError('Windows release requires latest.yml + .exe + .blockmap');
+        return;
+      }
+    }
+
     try {
       setStep('upload');
 
