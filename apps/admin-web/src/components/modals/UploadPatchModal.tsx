@@ -21,6 +21,18 @@ type UploadStep = 'initial' | 'metadata' | 'uploading' | 'success' | 'error';
 
 type FileWithPath = File & { path?: string };
 
+type DropDebug = {
+  items: number;
+  files: number;
+  entries: number;
+  handles: number;
+  pairsFromEntries: number;
+  pairsFromFiles: number;
+  pairsFromHandles: number;
+  finalPairs: number;
+  source: 'entries' | 'files' | 'handles' | 'none';
+};
+
 export default function UploadPatchModal({
   gameId,
   isOpen,
@@ -31,6 +43,7 @@ export default function UploadPatchModal({
   const [files, setFiles] = useState<FileToUpload[]>([]);
   const [isHashing, setIsHashing] = useState(false);
   const [hashProgress, setHashProgress] = useState<{ done: number; total: number } | null>(null);
+  const [dropDebug, setDropDebug] = useState<DropDebug | null>(null);
   const [uploadSession, setUploadSession] = useState<UploadSession | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +100,29 @@ export default function UploadPatchModal({
         file.webkitRelativePath || fromAbsolute || (absolutePath ? absolutePath.split('/').pop() || file.name : file.name);
       return { file, relativePath: relativePath.replace(/^\/+/, '') };
     });
+  }
+
+  async function readHandle(
+    handle: FileSystemHandle,
+    parentPath = '',
+  ): Promise<Array<{ file: File; relativePath: string }>> {
+    if (handle.kind === 'file') {
+      const fileHandle = handle as FileSystemFileHandle;
+      const file = await fileHandle.getFile();
+      const relativePath = parentPath ? `${parentPath}/${handle.name}` : handle.name;
+      return [{ file, relativePath }];
+    }
+
+    const directoryHandle = handle as FileSystemDirectoryHandle;
+    const dirPath = parentPath ? `${parentPath}/${handle.name}` : handle.name;
+    const collected: Array<{ file: File; relativePath: string }> = [];
+
+    for await (const [, childHandle] of directoryHandle.entries()) {
+      const nested = await readHandle(childHandle, dirPath);
+      collected.push(...nested);
+    }
+
+    return collected;
   }
 
   /** Recursively read a FileSystemEntry into { file, relativePath } pairs */
@@ -197,6 +233,7 @@ export default function UploadPatchModal({
   async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     e.stopPropagation();
+    setErrorMessage(null);
 
     const items = Array.from(e.dataTransfer.items ?? []);
     const entries = items
@@ -204,7 +241,28 @@ export default function UploadPatchModal({
       .map((item) => item.webkitGetAsEntry())
       .filter(Boolean) as FileSystemEntry[];
 
+    const droppedFiles = Array.from(e.dataTransfer.files ?? []);
+
+    let handles: FileSystemHandle[] = [];
+    if (items.length > 0 && typeof (items[0] as any).getAsFileSystemHandle === 'function') {
+      const handleResults = await Promise.allSettled(
+        items
+          .filter((item) => item.kind === 'file')
+          .map((item) => (item as any).getAsFileSystemHandle() as Promise<FileSystemHandle | null>),
+      );
+      handles = handleResults
+        .filter(
+          (r): r is PromiseFulfilledResult<FileSystemHandle | null> => r.status === 'fulfilled',
+        )
+        .map((r) => r.value)
+        .filter((v): v is FileSystemHandle => v !== null);
+    }
+
     let pairs: Array<{ file: File; relativePath: string }> = [];
+    let pairsFromEntries = 0;
+    let pairsFromFiles = 0;
+    let pairsFromHandles = 0;
+    let source: DropDebug['source'] = 'none';
 
     if (entries.length > 0) {
       const settled = await Promise.allSettled(entries.map((entry) => readEntry(entry)));
@@ -213,12 +271,27 @@ export default function UploadPatchModal({
           r.status === 'fulfilled',
         )
         .flatMap((r) => r.value);
+      pairsFromEntries = pairs.length;
+      if (pairs.length > 0) source = 'entries';
     }
 
     // Fallback for environments where webkitGetAsEntry is unavailable for bulk drops.
     if (pairs.length === 0) {
-      const droppedFiles = Array.from(e.dataTransfer.files ?? []);
       pairs = pairsFromFileList(droppedFiles);
+      pairsFromFiles = pairs.length;
+      if (pairs.length > 0) source = 'files';
+    }
+
+    // Fallback for Chromium variants with File System Access API support.
+    if (pairs.length === 0 && handles.length > 0) {
+      const settled = await Promise.allSettled(handles.map((handle) => readHandle(handle)));
+      pairs = settled
+        .filter((r): r is PromiseFulfilledResult<Array<{ file: File; relativePath: string }>> =>
+          r.status === 'fulfilled',
+        )
+        .flatMap((r) => r.value);
+      pairsFromHandles = pairs.length;
+      if (pairs.length > 0) source = 'handles';
     }
 
     // Final fallback for Chromium variants that expose files via DataTransferItem.getAsFile only.
@@ -227,7 +300,21 @@ export default function UploadPatchModal({
         .map((item) => item.getAsFile())
         .filter((value): value is File => value instanceof File);
       pairs = pairsFromFileList(itemFiles);
+      if (pairsFromFiles === 0) pairsFromFiles = pairs.length;
+      if (pairs.length > 0) source = 'files';
     }
+
+    setDropDebug({
+      items: items.length,
+      files: droppedFiles.length,
+      entries: entries.length,
+      handles: handles.length,
+      pairsFromEntries,
+      pairsFromFiles,
+      pairsFromHandles,
+      finalPairs: pairs.length,
+      source,
+    });
 
     if (pairs.length === 0) {
       setErrorMessage('Không đọc được file từ thao tác kéo thả. Hãy thử nút Chọn thư mục hoặc Chọn file lẻ.');
@@ -421,6 +508,24 @@ export default function UploadPatchModal({
               </div>
 
               {/* File list */}
+              {errorMessage && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {errorMessage}
+                </div>
+              )}
+
+              {dropDebug && (
+                <div className="rounded-lg border border-border bg-bg-elevated px-3 py-2 text-xs text-text-muted space-y-1">
+                  <div>Drop debug: source={dropDebug.source}, finalPairs={dropDebug.finalPairs}</div>
+                  <div>
+                    items={dropDebug.items}, files={dropDebug.files}, entries={dropDebug.entries}, handles={dropDebug.handles}
+                  </div>
+                  <div>
+                    fromEntries={dropDebug.pairsFromEntries}, fromFiles={dropDebug.pairsFromFiles}, fromHandles={dropDebug.pairsFromHandles}
+                  </div>
+                </div>
+              )}
+
               {isHashing && (
                 <p className="text-xs text-text-muted text-center animate-pulse">
                   Đang tính SHA-256… {hashProgress ? `(${hashProgress.done}/${hashProgress.total})` : ''}
