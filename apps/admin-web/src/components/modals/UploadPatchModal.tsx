@@ -140,12 +140,39 @@ export default function UploadPatchModal({
 
   async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    const items = Array.from(e.dataTransfer.items);
+
+    const items = Array.from(e.dataTransfer.items ?? []);
     const entries = items
+      .filter((item) => item.kind === 'file')
       .map((item) => item.webkitGetAsEntry())
       .filter(Boolean) as FileSystemEntry[];
-    const all = (await Promise.all(entries.map((entry) => readEntry(entry)))).flat();
-    await addRawFiles(all);
+
+    let pairs: Array<{ file: File; relativePath: string }> = [];
+
+    if (entries.length > 0) {
+      const settled = await Promise.allSettled(entries.map((entry) => readEntry(entry)));
+      pairs = settled
+        .filter((r): r is PromiseFulfilledResult<Array<{ file: File; relativePath: string }>> =>
+          r.status === 'fulfilled',
+        )
+        .flatMap((r) => r.value);
+    }
+
+    // Fallback for environments where webkitGetAsEntry is unavailable for bulk drops.
+    if (pairs.length === 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files ?? []);
+      pairs = droppedFiles.map((file) => ({
+        file,
+        relativePath: file.webkitRelativePath || file.name,
+      }));
+    }
+
+    if (pairs.length === 0) {
+      setErrorMessage('Không đọc được file từ thao tác kéo thả. Hãy thử nút Chọn thư mục hoặc Chọn file lẻ.');
+      return;
+    }
+
+    await addRawFiles(pairs);
   }
 
   async function handleFolderSelect(e: React.ChangeEvent<HTMLInputElement>) {
