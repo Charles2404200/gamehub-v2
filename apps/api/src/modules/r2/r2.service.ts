@@ -1,6 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { R2Client } from '@gamehub/r2-client';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class R2Service {
@@ -51,10 +52,7 @@ export class R2Service {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', arrayBuffer);
-    return Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    return createHash('sha256').update(Buffer.from(arrayBuffer)).digest('hex');
   }
 
   // ============ KEY GENERATION HELPERS ============

@@ -115,7 +115,15 @@ export class PatchVersionsService {
         const needsServerHash = !f.sha256 || f.sha256 === SERVER_SHA_PLACEHOLDER;
         if (!needsServerHash) return f;
 
-        const sha256 = await this.r2Service.getObjectSha256(f.r2Key);
+        let sha256: string;
+        try {
+          sha256 = await this.r2Service.getObjectSha256(f.r2Key);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown hash error';
+          throw new BadRequestException(
+            `Cannot compute SHA-256 for "${f.relativePath}" (${f.r2Key}): ${message}`,
+          );
+        }
         return { ...f, sha256 };
       }),
     );
