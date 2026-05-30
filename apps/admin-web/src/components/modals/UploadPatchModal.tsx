@@ -28,6 +28,7 @@ export default function UploadPatchModal({
   const [step, setStep] = useState<UploadStep>('initial');
   const [files, setFiles] = useState<FileToUpload[]>([]);
   const [isHashing, setIsHashing] = useState(false);
+  const [hashProgress, setHashProgress] = useState<{ done: number; total: number } | null>(null);
   const [uploadSession, setUploadSession] = useState<UploadSession | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,21 +76,66 @@ export default function UploadPatchModal({
 
   async function addRawFiles(pairs: { file: File; relativePath: string }[]) {
     if (pairs.length === 0) return;
-    setIsHashing(true);
-    const filesWithHash: FileToUpload[] = await Promise.all(
-      pairs.map(async ({ file, relativePath }) => ({
-        file,
-        relativePath,
-        sha256: await computeFileSHA256(file),
-        uploaded: false,
-        progress: 0,
-      })),
-    );
-    setFiles((prev) => {
-      const existing = new Set(prev.map((f) => f.relativePath));
-      return [...prev, ...filesWithHash.filter((f) => !existing.has(f.relativePath))];
+
+    const existing = new Set(files.map((f) => f.relativePath));
+    const seenIncoming = new Set<string>();
+    const uniqueIncoming = pairs.filter((p) => {
+      if (existing.has(p.relativePath) || seenIncoming.has(p.relativePath)) return false;
+      seenIncoming.add(p.relativePath);
+      return true;
     });
-    setIsHashing(false);
+    if (uniqueIncoming.length === 0) return;
+
+    const HASH_CONCURRENCY = Math.max(
+      1,
+      Math.min(4, Math.floor((navigator.hardwareConcurrency || 4) / 2)),
+    );
+
+    setErrorMessage(null);
+    setIsHashing(true);
+    setHashProgress({ done: 0, total: uniqueIncoming.length });
+
+    try {
+      const hashed: FileToUpload[] = new Array(uniqueIncoming.length);
+      let nextIndex = 0;
+      let completed = 0;
+
+      const worker = async () => {
+        while (true) {
+          const index = nextIndex++;
+          if (index >= uniqueIncoming.length) return;
+
+          const { file, relativePath } = uniqueIncoming[index];
+          const sha256 = await computeFileSHA256(file);
+          hashed[index] = {
+            file,
+            relativePath,
+            sha256,
+            uploaded: false,
+            progress: 0,
+          };
+
+          completed += 1;
+          setHashProgress({ done: completed, total: uniqueIncoming.length });
+
+          // Yield occasionally to keep the modal responsive for large file sets.
+          if (completed % 8 === 0) {
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+          }
+        }
+      };
+
+      await Promise.all(
+        Array.from({ length: Math.min(HASH_CONCURRENCY, uniqueIncoming.length) }, () => worker()),
+      );
+
+      setFiles((prev) => [...prev, ...hashed]);
+    } catch (err: any) {
+      setErrorMessage(err?.message ?? 'Không thể tính SHA-256 cho danh sách file');
+    } finally {
+      setIsHashing(false);
+      setHashProgress(null);
+    }
   }
 
   async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
@@ -98,7 +144,6 @@ export default function UploadPatchModal({
     const entries = items
       .map((item) => item.webkitGetAsEntry())
       .filter(Boolean) as FileSystemEntry[];
-    setIsHashing(true);
     const all = (await Promise.all(entries.map((entry) => readEntry(entry)))).flat();
     await addRawFiles(all);
   }
@@ -288,7 +333,9 @@ export default function UploadPatchModal({
 
               {/* File list */}
               {isHashing && (
-                <p className="text-xs text-text-muted text-center animate-pulse">Đang tính SHA-256…</p>
+                <p className="text-xs text-text-muted text-center animate-pulse">
+                  Đang tính SHA-256… {hashProgress ? `(${hashProgress.done}/${hashProgress.total})` : ''}
+                </p>
               )}
               {files.length > 0 && (
                 <div className="bg-bg-elevated rounded-lg overflow-hidden">
