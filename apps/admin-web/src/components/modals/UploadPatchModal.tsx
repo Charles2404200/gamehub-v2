@@ -20,6 +20,7 @@ interface UploadSession {
 type UploadStep = 'initial' | 'metadata' | 'uploading' | 'success' | 'error';
 
 type FileWithPath = File & { path?: string };
+const SERVER_SHA_PLACEHOLDER = '__SERVER_SHA256__';
 
 type DropDebug = {
   items: number;
@@ -118,7 +119,12 @@ export default function UploadPatchModal({
     const dirPath = parentPath ? `${parentPath}/${handle.name}` : handle.name;
     const collected: Array<{ file: File; relativePath: string }> = [];
 
-    for await (const [, childHandle] of directoryHandle.entries()) {
+    const iterator = (directoryHandle as any).values?.() as
+      | AsyncIterable<FileSystemHandle>
+      | undefined;
+    if (!iterator) return collected;
+
+    for await (const childHandle of iterator) {
       const nested = await readHandle(childHandle, dirPath);
       collected.push(...nested);
     }
@@ -231,6 +237,14 @@ export default function UploadPatchModal({
               progress: 0,
             });
           } catch {
+            // Some dropped files may be blocked for direct browser read; upload first and hash on server.
+            hashed.push({
+              file,
+              relativePath,
+              sha256: SERVER_SHA_PLACEHOLDER,
+              uploaded: false,
+              progress: 0,
+            });
             failed.push(relativePath);
           }
 
@@ -255,13 +269,10 @@ export default function UploadPatchModal({
       if (failed.length > 0) {
         setSkippedFiles(failed.slice(0, 20));
         setErrorMessage(
-          `Bỏ qua ${failed.length} file không đọc được. Hãy đảm bảo file local có quyền đọc và không bị khóa bởi app khác.`,
+          `${failed.length} file local không đọc được để tính SHA trên máy bạn. Hệ thống sẽ tự hash các file này ở server sau khi upload.`,
         );
       }
 
-      if (hashed.length === 0 && failed.length > 0) {
-        setErrorMessage('Không có file nào đọc được để upload. Vui lòng kiểm tra quyền truy cập thư mục/file.');
-      }
     } catch {
       setErrorMessage('Không thể tính SHA-256 cho danh sách file');
     } finally {

@@ -15,6 +15,8 @@ import { CreatePatchVersionDto } from './dto/create-patch-version.dto';
 import { PresignFilesDto } from './dto/presign-files.dto';
 import { PatchStatus, PatchMode, PatchManifest } from '@gamehub/shared';
 
+const SERVER_SHA_PLACEHOLDER = '__SERVER_SHA256__';
+
 @Injectable()
 export class PatchVersionsService {
   constructor(
@@ -108,9 +110,19 @@ export class PatchVersionsService {
       throw new BadRequestException(`Patch is not in UPLOADING state`);
     }
 
+    const filesWithSha = await Promise.all(
+      files.map(async (f) => {
+        const needsServerHash = !f.sha256 || f.sha256 === SERVER_SHA_PLACEHOLDER;
+        if (!needsServerHash) return f;
+
+        const sha256 = await this.r2Service.getObjectSha256(f.r2Key);
+        return { ...f, sha256 };
+      }),
+    );
+
     // Upsert each file record
     await Promise.all(
-      files.map((f) => {
+      filesWithSha.map((f) => {
         this.assertSafeRelativePath(f.relativePath);
         return this.patchFileModel.findOneAndUpdate(
           { patchVersionId: patch._id, relativePath: f.relativePath },
@@ -128,9 +140,9 @@ export class PatchVersionsService {
       }),
     );
 
-    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    const totalSize = filesWithSha.reduce((sum, f) => sum + f.size, 0);
     patch.totalSize = totalSize;
-    patch.fileCount = files.length;
+    patch.fileCount = filesWithSha.length;
     patch.status = PatchStatus.PROCESSING;
     return patch.save();
   }

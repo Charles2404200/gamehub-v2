@@ -42,6 +42,21 @@ export class R2Service {
     return this.client.objectExists(key);
   }
 
+  async getObjectSha256(key: string): Promise<string> {
+    const url = await this.client.presignGet({ key, expiresIn: 900 });
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to read object for hashing: ${response.status} ${response.statusText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
   // ============ KEY GENERATION HELPERS ============
 
   /** Generate key for game cover image */
