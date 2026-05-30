@@ -19,6 +19,8 @@ interface UploadSession {
 
 type UploadStep = 'initial' | 'metadata' | 'uploading' | 'success' | 'error';
 
+type FileWithPath = File & { path?: string };
+
 export default function UploadPatchModal({
   gameId,
   isOpen,
@@ -44,6 +46,49 @@ export default function UploadPatchModal({
 
   const { uploadFiles, uploadProgress, isUploading, error: uploadError } = useR2Upload();
 
+  function toPosixPath(input: string): string {
+    return input.replace(/\\/g, '/');
+  }
+
+  function sharedPathPrefix(paths: string[]): string {
+    if (paths.length === 0) return '';
+    const split = paths.map((p) => toPosixPath(p).split('/').filter(Boolean));
+    const minLength = Math.min(...split.map((segments) => segments.length));
+    const common: string[] = [];
+
+    for (let i = 0; i < minLength; i += 1) {
+      const segment = split[0][i];
+      if (split.every((segments) => segments[i] === segment)) {
+        common.push(segment);
+      } else {
+        break;
+      }
+    }
+
+    return common.length > 0 ? `${common.join('/')}/` : '';
+  }
+
+  function pairsFromFileList(rawFiles: File[]): Array<{ file: File; relativePath: string }> {
+    const filesWithPath = rawFiles as FileWithPath[];
+    const absolutePaths = filesWithPath
+      .map((file) => file.path)
+      .filter((value): value is string => typeof value === 'string' && value.length > 0)
+      .map((value) => toPosixPath(value));
+
+    const commonPrefix = sharedPathPrefix(absolutePaths);
+
+    return filesWithPath.map((file) => {
+      const absolutePath = file.path ? toPosixPath(file.path) : '';
+      const fromAbsolute =
+        absolutePath && commonPrefix && absolutePath.startsWith(commonPrefix)
+          ? absolutePath.slice(commonPrefix.length)
+          : '';
+      const relativePath =
+        file.webkitRelativePath || fromAbsolute || (absolutePath ? absolutePath.split('/').pop() || file.name : file.name);
+      return { file, relativePath: relativePath.replace(/^\/+/, '') };
+    });
+  }
+
   /** Recursively read a FileSystemEntry into { file, relativePath } pairs */
   async function readEntry(
     entry: FileSystemEntry,
@@ -51,7 +96,12 @@ export default function UploadPatchModal({
   ): Promise<{ file: File; relativePath: string }[]> {
     if (entry.isFile) {
       const fileEntry = entry as FileSystemFileEntry;
-      const file = await new Promise<File>((res) => fileEntry.file(res));
+      const file = await new Promise<File>((res, rej) =>
+        fileEntry.file(
+          (value) => res(value),
+          () => rej(new Error(`Cannot read dropped file: ${entry.name}`)),
+        ),
+      );
       const relativePath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
       return [{ file, relativePath }];
     } else {
@@ -60,13 +110,19 @@ export default function UploadPatchModal({
       const dirPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
       // readEntries may batch — call until empty
       const allEntries: FileSystemEntry[] = [];
-      await new Promise<void>((res) => {
+      await new Promise<void>((res, rej) => {
         const read = () =>
-          reader.readEntries((batch) => {
-            if (batch.length === 0) { res(); return; }
-            allEntries.push(...batch);
-            read();
-          });
+          reader.readEntries(
+            (batch) => {
+              if (batch.length === 0) {
+                res();
+                return;
+              }
+              allEntries.push(...batch);
+              read();
+            },
+            () => rej(new Error(`Cannot read dropped directory: ${dirPath}`)),
+          );
         read();
       });
       const nested = await Promise.all(allEntries.map((e) => readEntry(e, dirPath)));
@@ -140,6 +196,7 @@ export default function UploadPatchModal({
 
   async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
+    e.stopPropagation();
 
     const items = Array.from(e.dataTransfer.items ?? []);
     const entries = items
@@ -161,10 +218,15 @@ export default function UploadPatchModal({
     // Fallback for environments where webkitGetAsEntry is unavailable for bulk drops.
     if (pairs.length === 0) {
       const droppedFiles = Array.from(e.dataTransfer.files ?? []);
-      pairs = droppedFiles.map((file) => ({
-        file,
-        relativePath: file.webkitRelativePath || file.name,
-      }));
+      pairs = pairsFromFileList(droppedFiles);
+    }
+
+    // Final fallback for Chromium variants that expose files via DataTransferItem.getAsFile only.
+    if (pairs.length === 0) {
+      const itemFiles = items
+        .map((item) => item.getAsFile())
+        .filter((value): value is File => value instanceof File);
+      pairs = pairsFromFileList(itemFiles);
     }
 
     if (pairs.length === 0) {
@@ -178,13 +240,13 @@ export default function UploadPatchModal({
   async function handleFolderSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
     e.currentTarget.value = '';
-    await addRawFiles(selected.map((f) => ({ file: f, relativePath: f.webkitRelativePath || f.name })));
+    await addRawFiles(pairsFromFileList(selected));
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.currentTarget.files ? Array.from(e.currentTarget.files) : [];
     e.currentTarget.value = '';
-    await addRawFiles(selected.map((f) => ({ file: f, relativePath: f.name })));
+    await addRawFiles(pairsFromFileList(selected));
   }
 
   function removeFile(relativePath: string) {
