@@ -44,6 +44,7 @@ export default function UploadPatchModal({
   const [isHashing, setIsHashing] = useState(false);
   const [hashProgress, setHashProgress] = useState<{ done: number; total: number } | null>(null);
   const [dropDebug, setDropDebug] = useState<DropDebug | null>(null);
+  const [skippedFiles, setSkippedFiles] = useState<string[]>([]);
   const [uploadSession, setUploadSession] = useState<UploadSession | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,6 +126,26 @@ export default function UploadPatchModal({
     return collected;
   }
 
+  async function ensureHandleReadable(handle: FileSystemHandle): Promise<boolean> {
+    const maybeHandle = handle as FileSystemHandle & {
+      queryPermission?: (descriptor?: { mode: 'read' }) => Promise<'granted' | 'denied' | 'prompt'>;
+      requestPermission?: (descriptor?: { mode: 'read' }) => Promise<'granted' | 'denied' | 'prompt'>;
+    };
+
+    if (typeof maybeHandle.queryPermission === 'function') {
+      const state = await maybeHandle.queryPermission({ mode: 'read' });
+      if (state === 'granted') return true;
+      if (state === 'denied') return false;
+    }
+
+    if (typeof maybeHandle.requestPermission === 'function') {
+      const state = await maybeHandle.requestPermission({ mode: 'read' });
+      return state === 'granted';
+    }
+
+    return true;
+  }
+
   /** Recursively read a FileSystemEntry into { file, relativePath } pairs */
   async function readEntry(
     entry: FileSystemEntry,
@@ -184,11 +205,13 @@ export default function UploadPatchModal({
     );
 
     setErrorMessage(null);
+    setSkippedFiles([]);
     setIsHashing(true);
     setHashProgress({ done: 0, total: uniqueIncoming.length });
 
     try {
-      const hashed: FileToUpload[] = new Array(uniqueIncoming.length);
+      const hashed: FileToUpload[] = [];
+      const failed: string[] = [];
       let nextIndex = 0;
       let completed = 0;
 
@@ -198,14 +221,18 @@ export default function UploadPatchModal({
           if (index >= uniqueIncoming.length) return;
 
           const { file, relativePath } = uniqueIncoming[index];
-          const sha256 = await computeFileSHA256(file);
-          hashed[index] = {
-            file,
-            relativePath,
-            sha256,
-            uploaded: false,
-            progress: 0,
-          };
+          try {
+            const sha256 = await computeFileSHA256(file);
+            hashed.push({
+              file,
+              relativePath,
+              sha256,
+              uploaded: false,
+              progress: 0,
+            });
+          } catch {
+            failed.push(relativePath);
+          }
 
           completed += 1;
           setHashProgress({ done: completed, total: uniqueIncoming.length });
@@ -221,9 +248,22 @@ export default function UploadPatchModal({
         Array.from({ length: Math.min(HASH_CONCURRENCY, uniqueIncoming.length) }, () => worker()),
       );
 
-      setFiles((prev) => [...prev, ...hashed]);
-    } catch (err: any) {
-      setErrorMessage(err?.message ?? 'Không thể tính SHA-256 cho danh sách file');
+      if (hashed.length > 0) {
+        setFiles((prev) => [...prev, ...hashed]);
+      }
+
+      if (failed.length > 0) {
+        setSkippedFiles(failed.slice(0, 20));
+        setErrorMessage(
+          `Bỏ qua ${failed.length} file không đọc được. Hãy đảm bảo file local có quyền đọc và không bị khóa bởi app khác.`,
+        );
+      }
+
+      if (hashed.length === 0 && failed.length > 0) {
+        setErrorMessage('Không có file nào đọc được để upload. Vui lòng kiểm tra quyền truy cập thư mục/file.');
+      }
+    } catch {
+      setErrorMessage('Không thể tính SHA-256 cho danh sách file');
     } finally {
       setIsHashing(false);
       setHashProgress(null);
@@ -258,13 +298,36 @@ export default function UploadPatchModal({
         .filter((v): v is FileSystemHandle => v !== null);
     }
 
+    if (handles.length > 0) {
+      const readableHandles: FileSystemHandle[] = [];
+      for (const handle of handles) {
+        try {
+          if (await ensureHandleReadable(handle)) readableHandles.push(handle);
+        } catch {
+          // Skip handles that cannot be granted read access.
+        }
+      }
+      handles = readableHandles;
+    }
+
     let pairs: Array<{ file: File; relativePath: string }> = [];
     let pairsFromEntries = 0;
     let pairsFromFiles = 0;
     let pairsFromHandles = 0;
     let source: DropDebug['source'] = 'none';
 
-    if (entries.length > 0) {
+    if (handles.length > 0) {
+      const settled = await Promise.allSettled(handles.map((handle) => readHandle(handle)));
+      pairs = settled
+        .filter((r): r is PromiseFulfilledResult<Array<{ file: File; relativePath: string }>> =>
+          r.status === 'fulfilled',
+        )
+        .flatMap((r) => r.value);
+      pairsFromHandles = pairs.length;
+      if (pairs.length > 0) source = 'handles';
+    }
+
+    if (pairs.length === 0 && entries.length > 0) {
       const settled = await Promise.allSettled(entries.map((entry) => readEntry(entry)));
       pairs = settled
         .filter((r): r is PromiseFulfilledResult<Array<{ file: File; relativePath: string }>> =>
@@ -280,18 +343,6 @@ export default function UploadPatchModal({
       pairs = pairsFromFileList(droppedFiles);
       pairsFromFiles = pairs.length;
       if (pairs.length > 0) source = 'files';
-    }
-
-    // Fallback for Chromium variants with File System Access API support.
-    if (pairs.length === 0 && handles.length > 0) {
-      const settled = await Promise.allSettled(handles.map((handle) => readHandle(handle)));
-      pairs = settled
-        .filter((r): r is PromiseFulfilledResult<Array<{ file: File; relativePath: string }>> =>
-          r.status === 'fulfilled',
-        )
-        .flatMap((r) => r.value);
-      pairsFromHandles = pairs.length;
-      if (pairs.length > 0) source = 'handles';
     }
 
     // Final fallback for Chromium variants that expose files via DataTransferItem.getAsFile only.
@@ -318,6 +369,7 @@ export default function UploadPatchModal({
 
     if (pairs.length === 0) {
       setErrorMessage('Không đọc được file từ thao tác kéo thả. Hãy thử nút Chọn thư mục hoặc Chọn file lẻ.');
+      setSkippedFiles([]);
       return;
     }
 
@@ -511,6 +563,13 @@ export default function UploadPatchModal({
               {errorMessage && (
                 <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
                   {errorMessage}
+                  {skippedFiles.length > 0 && (
+                    <div className="mt-2 space-y-1 text-[11px] text-red-200 max-h-24 overflow-auto">
+                      {skippedFiles.map((path) => (
+                        <div key={path}>- {path}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
