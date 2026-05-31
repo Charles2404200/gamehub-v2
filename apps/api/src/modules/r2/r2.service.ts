@@ -51,8 +51,20 @@ export class R2Service {
       throw new Error(`Failed to read object for hashing: ${response.status} ${response.statusText}`);
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    return createHash('sha256').update(Buffer.from(arrayBuffer)).digest('hex');
+    if (!response.body) {
+      throw new Error('Failed to read object stream for hashing');
+    }
+
+    const hash = createHash('sha256');
+    const reader = response.body.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) hash.update(value);
+    }
+
+    return hash.digest('hex');
   }
 
   // ============ KEY GENERATION HELPERS ============
